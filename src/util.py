@@ -16,9 +16,27 @@ import imageio
 import pyeit.eit.protocol as protocol
 import pyeit.mesh as mesh
 from pyeit import mesh
-from pyeit.eit.fem import EITForward
 from pyeit.mesh.wrapper import PyEITAnomaly_Circle
 from IPython.display import Image, display
+from pyeit.eit.fem import EITForward, Forward
+from pyeit.eit.interp2d import pdegrad, sim2pts
+from PIL import Image
+import os
+
+def define_mesh_obj(n_el,use_customize_shape):
+    n_el = 16  # nb of electrodes
+    use_customize_shape = False
+    if use_customize_shape:
+        # Mesh shape is specified with fd parameter in the instantiation, e.g : fd=thorax
+        mesh_obj = mesh.create(n_el, h0=0.05, fd=thorax)
+    else:
+        mesh_obj = mesh.create(n_el, h0=0.05)
+                   # Elektrodenpositionen extrahieren
+
+# Extrahiert Informationen über das Maschennetz wie Elektrodenpositionen, Knoten und Elemente
+
+
+    return mesh_obj
 
 def plot_mesh(
     mesh_obj, figsize: tuple = (6, 4), title: str = "mesh"
@@ -197,3 +215,145 @@ def plot_mesh_permarray(mesh_obj, perm_array, ax=None, title="Mesh", sample_inde
         plt.show()
     else:
         plt.colorbar(im, ax=ax)
+
+
+def seq_data(eit, perm, n_seg=4):
+    sequence = [eit[i : i + n_seg] for i in range(len(eit) - n_seg)]
+    aligned_perm = perm[n_seg:]
+    return np.array(sequence), np.array(aligned_perm)
+
+
+def plot_tank(r, h, ax):
+    
+    theta = np.linspace(0, 2 * np.pi, 100)
+    z_cylinder = np.linspace(0, h, 100)
+    X_cylinder, Z_cylinder = np.meshgrid(r * np.cos(theta), z_cylinder)
+    Y_cylinder, _ = np.meshgrid(r * np.sin(theta), z_cylinder)
+    ax.plot_surface(X_cylinder, Y_cylinder, Z_cylinder, color='lightgray', alpha=0.5)
+
+def plot_sphere(sphere_r, tank_r, tank_h):
+
+    r_path = 0.75
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    plot_tank(tank_r, tank_h, ax)
+
+    traj = "helix"
+    helix_turns = 5  
+    helix_steps = 1000
+    match traj:
+        case "helix":
+            t = np.linspace(0, 2 * np.pi * helix_turns, helix_steps)
+            sphere_x = tank_r*r_path * np.cos(t)
+            sphere_y = tank_r*r_path * np.sin(t)
+            sphere_z = np.linspace(0, tank_h, helix_steps)
+
+    positions = np.column_stack((sphere_x, sphere_y, sphere_z))
+    
+    ax.plot(sphere_x, sphere_y, sphere_z, color='r')
+    ax.scatter(sphere_x, sphere_y, sphere_z, color='b')
+    
+    ax.set_xlabel('x pos [mm]')
+    ax.set_ylabel('y pos [mm]')
+    ax.set_zlabel('z pos [mm]')
+    ax.set_title('Kugel 3D Trajektorie')
+     
+    plt.show()
+    
+    return positions
+
+def createTrajectory(traj,a,r_path):
+    # Erzeugt verschiedene Trajektorien-Pfade basierend auf dem 'traj'-Parameter
+    match traj:
+            case "circle":
+                    center=[np.cos(a)*r_path,np.sin(a)*r_path]
+            case "flower":
+                    n=2
+                    r = np.sqrt(abs(np.cos(n*a)))
+                    center=[np.cos(a)*r*r_path,np.sin(a)*r_path*r]
+            case "eight":
+                    center=[np.sin(a)*r_path,np.sin(2*a)*r_path/2]
+            case "spiral":
+                    spiral_r = r_path * (a / (2 * np.pi))  # Lineares Wachstum mit dem Winkel
+                    center = [spiral_r * np.cos(a), spiral_r * np.sin(a)]
+            case "pendel":
+                    modified_angle = np.pi/np.sin(a)
+                    center = [np.cos(modified_angle) * r_path, np.sin(modified_angle) * r_path]
+            case "ellipse":
+                    Rotation = True
+                    b = r_path
+                    c = r_path / 2
+                    center = [b*np.cos(a),c*np.sin(a)]
+                    if Rotation == True:
+                          x = center[0]
+                          center[0] = center[1]
+                          center[1] = x
+                    
+    return center
+
+def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
+    pts = mesh_obj.node                         # Knoten extrahieren
+    tri = mesh_obj.element                      # Elemente extrahieren
+    x, y = pts[:, 0], pts[:, 1]                 # x- und y-Koordinaten trennen
+    image_files = []
+    output_gif = f"animation_{traj}.gif"
+    # Loop durch jede Anomalie-Position
+    center_coords = []
+    for i, mesh_data in enumerate(mesh_new_list):
+        center_coords.append([mesh_data["x"], mesh_data["y"]])
+        # Loop durch jedes Elektrodenpaar für die aktuelle Anomalie-Position
+        for j, ex_line in enumerate(protocol_obj.ex_mat):
+            fig, ax1 = plt.subplots(figsize=(9, 6))
+
+            # Potentialverteilung für dieses Elektrodenpaar
+            fwd = Forward(mesh_data["mesh"])
+            f = np.real(fwd.solve(ex_line.ravel()))
+
+            # Äquipotentiallinien basierend auf der Einspeisung
+            vf = np.linspace(min(f), max(f), 64)
+            ax1.tricontour(x, y, tri, f, vf, cmap=plt.cm.viridis)
+
+            ax1.tripcolor(
+                x,
+                y,
+                tri,
+                np.real(mesh_data["mesh"].perm),
+                edgecolors="k",
+                shading="flat",
+                alpha=0.5,
+                cmap=plt.cm.Greys,
+            )
+
+            # plottet Elektroden
+            ax1.plot(x[mesh_obj.el_pos], y[mesh_obj.el_pos], "ro")
+            for e_idx, e in enumerate(mesh_obj.el_pos):
+                ax1.text(x[e], y[e], str(e_idx + 1), size=12)
+                
+            center_x = [coord[0] for coord in center_coords]
+            center_y = [coord[1] for coord in center_coords]
+            ax1.plot(center_x, center_y, marker='o', color='b', label="Trajectory Path")
+
+            # Plotte das Zentrum der aktuellen Anomalie
+            ax1.scatter(mesh_data["x"], mesh_data["y"], color="r", label="Anomaly Center")
+            ax1.set_title(f"Trajectory-Path:{ traj}, Injection Electrode-Pair: [{ex_line[0]};{ex_line[1]}]")
+            ax1.set_aspect("equal")
+            ax1.set_ylim([-1.2, 1.2])
+            ax1.set_xlim([-1.2, 1.2])
+            fig.set_size_inches(6, 6)
+
+            # Speichert das Bild
+            filename = f"frame_{i}_{j}.png"
+            plt.savefig(filename)
+            image_files.append(filename)
+            plt.close(fig)
+
+    # Erstellt das GIF
+    frames = [Image.open(image) for image in image_files]
+    frames[0].save(output_gif, format="GIF", append_images=frames[1:], save_all=True, duration=100, loop=0)
+
+    # Einzelbilder löschen
+    for image in image_files:
+        os.remove(image)
+
+    
+
