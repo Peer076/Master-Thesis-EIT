@@ -231,7 +231,7 @@ def plot_tank(r, h, ax):
     Y_cylinder, _ = np.meshgrid(r * np.sin(theta), z_cylinder)
     ax.plot_surface(X_cylinder, Y_cylinder, Z_cylinder, color='lightgray', alpha=0.5)
 
-def plot_sphere(sphere_r, tank_r, tank_h):
+def plot_3D_traj(sphere_r, tank_r, tank_h):
 
     r_path = 0.75
     fig = plt.figure()
@@ -239,14 +239,23 @@ def plot_sphere(sphere_r, tank_r, tank_h):
     plot_tank(tank_r, tank_h, ax)
 
     traj = "helix"
-    helix_turns = 5  
-    helix_steps = 1000
+     
+    N_steps = 100
     match traj:
         case "helix":
-            t = np.linspace(0, 2 * np.pi * helix_turns, helix_steps)
-            sphere_x = tank_r*r_path * np.cos(t)
-            sphere_y = tank_r*r_path * np.sin(t)
-            sphere_z = np.linspace(0, tank_h, helix_steps)
+            helix_turns = 1
+            theta = np.linspace(0, 2 * np.pi * helix_turns, N_steps)
+            sphere_x = tank_r*r_path * np.cos(theta)
+            sphere_y = tank_r*r_path * np.sin(theta)
+            sphere_z = np.linspace(0, tank_h, N_steps)
+
+        case "ellipse":
+            tilt_angle = 45
+            angle_rad = np.radians(tilt_angle)
+            theta = np.linspace(0, 2*np.pi, N_steps)
+            sphere_x = tank_r * np.cos(theta)
+            sphere_y = (tank_r * np.sin(theta)) / np.cos(angle_rad)
+            sphere_z = tank_h/2 * np.ones_like(theta)
 
     positions = np.column_stack((sphere_x, sphere_y, sphere_z))
     
@@ -262,8 +271,16 @@ def plot_sphere(sphere_r, tank_r, tank_h):
     
     return positions
 
-def createTrajectory(traj,a,r_path):
+def createTrajectory(traj,a,r_path, r_path_variations):
     # Erzeugt verschiedene Trajektorien-Pfade basierend auf dem 'traj'-Parameter
+
+    if r_path_variations == True:
+
+        bound = 0.2
+        lower_bound = r_path * (1 - bound)  
+        upper_bound = r_path * (1 + bound) 
+        r_path = np.random.uniform(lower_bound, upper_bound)
+        
     match traj:
             case "circle":
                     center=[np.cos(a)*r_path,np.sin(a)*r_path]
@@ -355,5 +372,34 @@ def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="anim
     for image in image_files:
         os.remove(image)
 
-    
+def load_all_data():
+    voltage_dict = {} 
+    gamma_dict = {} 
+    anomaly_dict = {}
+    data_dirs = sorted(glob("data_set/data*/"))  
+
+    for i, directory in enumerate(data_dirs):
+        file_list = sorted(glob(f"{directory}*.npz"))  
+        voltage_list = []
+        gamma_list = []
+        anomaly_list = []
+
+        for file in file_list:
+            tmp = np.load(file, allow_pickle=True)  
+            voltage_list.append(tmp["v"])  
+            gamma_list.append(tmp["gamma"])
+            anomaly_list.append(tmp["anomaly"])
+
+        voltage_array = np.array(voltage_list) 
+        anomaly_array = np.array(anomaly_list)
+        gamma_array = np.array(gamma_list)
+
+        gamma_array = np.expand_dims(gamma_array, axis=2)
+        
+        
+        voltage_dict[f"voltage{i}" if i > 0 else "voltage"] = voltage_array
+        gamma_dict[f"gamma{i}" if i > 0 else "gamma"] = gamma_array
+        anomaly_dict[f"anomaly{i}" if i > 0 else "anomaly"] = anomaly_array
+        
+    return voltage_dict, gamma_dict, anomaly_dict   
 
