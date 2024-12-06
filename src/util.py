@@ -372,11 +372,11 @@ def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="anim
     for image in image_files:
         os.remove(image)
 
-def load_all_data():
+def load_all_data(data_set):
     voltage_dict = {} 
     gamma_dict = {} 
     anomaly_dict = {}
-    data_dirs = sorted(glob("data_set/data*/"))  
+    data_dirs = sorted(glob(f"data_set/{data_set}/"))  
 
     for i, directory in enumerate(data_dirs):
         file_list = sorted(glob(f"{directory}*.npz"))  
