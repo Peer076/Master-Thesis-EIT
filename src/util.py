@@ -393,13 +393,122 @@ def load_all_data(data_set):
         voltage_array = np.array(voltage_list) 
         anomaly_array = np.array(anomaly_list)
         gamma_array = np.array(gamma_list)
-
-        gamma_array = np.expand_dims(gamma_array, axis=2)
-        
+    
         
         voltage_dict[f"voltage{i}" if i > 0 else "voltage"] = voltage_array
         gamma_dict[f"gamma{i}" if i > 0 else "gamma"] = gamma_array
         anomaly_dict[f"anomaly{i}" if i > 0 else "anomaly"] = anomaly_array
         
-    return voltage_dict, gamma_dict, anomaly_dict   
+    return voltage_dict, gamma_dict, anomaly_dict  
+
+#Function to create mesh plots and save them for comparison
+def mesh_plot_comparisons(
+    mesh_obj,
+    selected_indices,
+    selected_true_perms,
+    selected_predicted_perms,
+    save_dir="comparison_plots",
+    gif_name="comparison.gif",
+    gif_title="Mesh Comparison",
+    fps=1,
+):
+    os.makedirs(save_dir, exist_ok=True)
+
+    images = []
+
+    for i in range(len(selected_indices)):
+        true_perm = selected_true_perms[i].flatten()
+        pred_perm = selected_predicted_perms[i].flatten()
+
+        assert len(true_perm) == len(
+            mesh_obj.element
+        ), f"Length of true_perm ({len(true_perm)}) does not match number of elements ({len(mesh_obj.element)})"
+        assert len(pred_perm) == len(
+            mesh_obj.element
+        ), f"Length of pred_perm ({len(pred_perm)}) does not match number of elements ({len(mesh_obj.element)})"
+
+        fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+        fig.suptitle(gif_title, fontsize=16)
+
+        plot_mesh_permarray(
+            mesh_obj,
+            true_perm,
+            ax=axs[0],
+            title="Original",
+            sample_index=selected_indices[i],
+        )
+        plot_mesh_permarray(
+            mesh_obj,
+            pred_perm,
+            ax=axs[1],
+            title="Predicted",
+            sample_index=selected_indices[i],
+        )
+
+        filename = os.path.join(save_dir, f"comparison_{i + 1}.png")
+        plt.savefig(filename, format="png", dpi=300)
+        plt.savefig(filename + ".pdf")
+        plt.show()
+
+        images.append(imageio.imread(filename))
+        plt.close(fig)
+
+    gif_path = os.path.join(save_dir, gif_name)
+    duration_per_frame = 1000 / fps
+    imageio.mimsave(gif_path, images, duration=duration_per_frame, loop=0)
+
+    png_dats = glob(os.path.join(save_dir, "*.png"))
+    for dat in png_dats:
+        os.remove(dat)
+
+def plot_boxplot(
+    data, ylabel, title, savefig_name, save_dir="plots", figsize=(6, 8), dpi=300
+):
+    os.makedirs(save_dir, exist_ok=True)
+    plt.figure(figsize=figsize)
+    plt.boxplot(data)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    save_path = os.path.join(save_dir, savefig_name)
+    plt.savefig(save_path, format="png", dpi=dpi)
+    plt.show()
+
+# Function to select a number of random instances for mesh plots comparison
+def select_random_instances(x_test, y_test, predicted_permittivities, num_instances=10):
+    random_indices = random.sample(range(x_test.shape[0]), num_instances)
+    selected_true_perms = y_test[random_indices]
+    selected_predicted_perms = predicted_permittivities[random_indices]
+    return random_indices, selected_true_perms, selected_predicted_perms
+
+
+def calculate_perm_error(X_true, X_pred):
+    perm_error = list()
+    obj_threshold = (np.max(X_true) - np.min(X_true)) / 2
+    mesh_obj = mesh.create(n_el=32, h0=0.05)
+
+    for perm_true, perm_pred in zip(X_true, X_pred):
+        perm_error.append(
+            compute_perm_deviation(
+                mesh_obj, perm_true, perm_pred, obj_threshold, plot=False
+            )
+        )
+    perm_error = np.array(perm_error)
+
+    return perm_error
+
+# Functions to compute FEM deviations for box plot
+def compute_perm_deviation(
+    mesh_obj,
+    perm_true: np.ndarray,
+    perm_pred: np.ndarray,
+    obj_threshold: Union[int, float],
+    plot: bool = False,
+) -> int:
+    # Identify object indices based on threshold
+    obj_idx_true = np.where(perm_true > obj_threshold)[0]
+    obj_idx_pred = np.where(perm_pred > obj_threshold)[0]
+
+    perm_dev = len(obj_idx_pred) - len(obj_idx_true)
+
+    return perm_dev
 
