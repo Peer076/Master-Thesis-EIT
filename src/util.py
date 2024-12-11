@@ -271,12 +271,11 @@ def plot_3D_traj(sphere_r, tank_r, tank_h):
     
     return positions
 
-def createTrajectory(traj,a,r_path, r_path_variations):
+def createTrajectory(traj,a,r_path, r_path_variations, bound):
     # Erzeugt verschiedene Trajektorien-Pfade basierend auf dem 'traj'-Parameter
 
     if r_path_variations == True:
-
-        bound = 0.2
+        
         lower_bound = r_path * (1 - bound)  
         upper_bound = r_path * (1 + bound) 
         r_path = np.random.uniform(lower_bound, upper_bound)
@@ -307,7 +306,7 @@ def createTrajectory(traj,a,r_path, r_path_variations):
                           center[1] = x
                     
     return center
-
+#####
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
     tri = mesh_obj.element                      # Elemente extrahieren
@@ -371,7 +370,7 @@ def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="anim
     # Einzelbilder löschen
     for image in image_files:
         os.remove(image)
-
+###
 def load_all_data(data_set):
     voltage_dict = {} 
     gamma_dict = {} 
@@ -400,7 +399,7 @@ def load_all_data(data_set):
         anomaly_dict[f"anomaly{i}" if i > 0 else "anomaly"] = anomaly_array
         
     return voltage_dict, gamma_dict, anomaly_dict  
-
+###
 #Function to create mesh plots and save them for comparison
 def mesh_plot_comparisons(
     mesh_obj,
@@ -460,7 +459,7 @@ def mesh_plot_comparisons(
     png_dats = glob(os.path.join(save_dir, "*.png"))
     for dat in png_dats:
         os.remove(dat)
-
+###
 def plot_boxplot(
     data, ylabel, title, savefig_name, save_dir="plots", figsize=(6, 8), dpi=300
 ):
@@ -472,7 +471,7 @@ def plot_boxplot(
     save_path = os.path.join(save_dir, savefig_name)
     plt.savefig(save_path, format="png", dpi=dpi)
     plt.show()
-
+###
 # Function to select a number of random instances for mesh plots comparison
 def select_random_instances(x_test, y_test, predicted_permittivities, num_instances=10):
     random_indices = random.sample(range(x_test.shape[0]), num_instances)
@@ -480,7 +479,7 @@ def select_random_instances(x_test, y_test, predicted_permittivities, num_instan
     selected_predicted_perms = predicted_permittivities[random_indices]
     return random_indices, selected_true_perms, selected_predicted_perms
 
-
+###
 def calculate_perm_error(X_true, X_pred):
     perm_error = list()
     obj_threshold = (np.max(X_true) - np.min(X_true)) / 2
@@ -511,4 +510,12 @@ def compute_perm_deviation(
     perm_dev = len(obj_idx_pred) - len(obj_idx_true)
 
     return perm_dev
+
+# Auswahl zufälliger Instanzen unter Verwendung der Indizes aus test_indices
+def select_random_instances_mapper(x_test, y_test, predicted_permittivities, indices, num_instances=10):
+    random_indices = random.sample(range(x_test.shape[0]), num_instances)
+    selected_true_perms = y_test[random_indices]
+    selected_predicted_perms = predicted_permittivities[random_indices]
+    selected_indices = indices[random_indices]  # Hole die tatsächlichen Indizes
+    return selected_indices, selected_true_perms, selected_predicted_perms
 
