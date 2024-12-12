@@ -271,42 +271,45 @@ def plot_3D_traj(sphere_r, tank_r, tank_h):
     
     return positions
 
-def createTrajectory(traj,a,r_path, r_path_variations, bound):
-    # Erzeugt verschiedene Trajektorien-Pfade basierend auf dem 'traj'-Parameter
+
+    
+def createTrajectory(traj, t, r_path, r_path_variations, bound):
+    # Erzeugt verschiedene Trajektorien-Pfade basierend auf Differentialgleichungen
 
     if r_path_variations == True:
-        
-        lower_bound = r_path * (1 - bound)  
-        upper_bound = r_path * (1 + bound) 
+        lower_bound = r_path * (1 - bound)
+        upper_bound = r_path * (1 + bound)
         r_path = np.random.uniform(lower_bound, upper_bound)
-        
+
     match traj:
-            case "circle":
-                    center=[np.cos(a)*r_path,np.sin(a)*r_path]
-            case "flower":
-                    n=2
-                    r = np.sqrt(abs(np.cos(n*a)))
-                    center=[np.cos(a)*r*r_path,np.sin(a)*r_path*r]
-            case "eight":
-                    center=[np.sin(a)*r_path,np.sin(2*a)*r_path/2]
-            case "spiral":
-                    spiral_r = r_path * (a / (2 * np.pi))  # Lineares Wachstum mit dem Winkel
-                    center = [spiral_r * np.cos(a), spiral_r * np.sin(a)]
-            case "pendel":
-                    modified_angle = np.pi/np.sin(a)
-                    center = [np.cos(modified_angle) * r_path, np.sin(modified_angle) * r_path]
-            case "ellipse":
-                    Rotation = True
-                    b = r_path
-                    c = r_path / 2
-                    center = [b*np.cos(a),c*np.sin(a)]
-                    if Rotation == True:
-                          x = center[0]
-                          center[0] = center[1]
-                          center[1] = x
-                    
-    return center
-#####
+        case "circle":
+            # Differentialgleichung: Kreisbewegung gegen den Uhrzeigersinn
+            x = r_path * np.cos(t)
+            y = r_path * np.sin(t)
+        case "eight":
+            # Differentialgleichung: Acht, startend bei (r_path, 0)
+            x = r_path * np.sin(t)
+            y = r_path * np.sin(2 * t) / 2
+        case "spiral":
+              # Archimedische Spirale
+            max_radius = r_path
+            num_turns = 3
+            t_adjusted = t * num_turns
+            r = max_radius * (1 - t / (2 * np.pi))
+            x = r * np.cos(t_adjusted)
+            y = r * np.sin(t_adjusted)
+            
+    return [x, y]
+
+
+    # Verschiebung, damit alle Trajektorien bei (r_path, 0) starten
+    #start_shift_x = r_path  # Zielstartpunkt x = r_path
+    #start_shift_y = 0       # Zielstartpunkt y = 0
+
+
+    #x += start_shift_x - r_path
+    #y += start_shift_y
+###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
     tri = mesh_obj.element                      # Elemente extrahieren
