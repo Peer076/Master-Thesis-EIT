@@ -1,6 +1,11 @@
 __pycache__
 .ipynb_checkpoints
-data*/
-VAE_test.ipynb
-Test.ipynb
-Untitled.ipynb
+data_set/
+LSTM_Mapper_Mesh_Plots_Exp1/
+animation/
+hpt/
+models/
+Mapper_Mesh_Plots_Exp1/
+*.gif
+weights/
+
