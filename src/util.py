@@ -289,22 +289,6 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
-import numpy as np
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-
-import numpy as np
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-
-import numpy as np
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-
-import numpy as np
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-
 def calculate_arc_length(traj, r_path):
     """
     Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
@@ -363,16 +347,40 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points=100, rot
         scaling_factor = circle_length / eight_length
 
         t = np.linspace(0, double_pi, 1000)
-        x = r_path * np.sin(t)
-        y = -scaling_factor * r_path * np.sin(2 * t) / 2
+        x = r_path * np.sin(t + np.pi / 2)
+        y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
 
     elif traj == "Spirale":
-        max_theta = double_pi * rotations
+        # Passe die Anzahl der Umdrehungen an, um die gleiche Streckenlänge wie beim Kreis zu erreichen
+        def spirale_arc_length(rot):
+            max_theta = double_pi * rot
+            scale_factor = r_path / max_theta
+
+            def integrand(t):
+                r = scale_factor * t
+                dr_dt = scale_factor
+                return np.sqrt((r * -np.sin(t))**2 + (r * np.cos(t))**2 + dr_dt**2)
+
+            length, _ = quad(integrand, 0, max_theta)
+            return length
+
+        # Finde die richtige Anzahl an Umdrehungen
+        target_length = calculate_arc_length("Kreis", r_path)
+        rotations = np.linspace(1, 10, 1000)
+        lengths = [spirale_arc_length(rot) for rot in rotations]
+        optimal_rot = rotations[np.argmin(np.abs(np.array(lengths) - target_length))]
+
+        max_theta = double_pi * optimal_rot
         t = np.linspace(0, max_theta, 1000)
         scale_factor = r_path / max_theta
-        r = scale_factor * t
+        r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
         x = r * np.cos(t)
         y = r * np.sin(t)
+
+        # Starte bei (r_path, 0) und passe die Orientierung an
+        x = r * np.cos(t)
+        y = r * np.sin(t)
+        x, y = x, y  # Verschiebe den Startpunkt auf (r_path, 0)
 
     else:
         raise ValueError(f"Unbekannte Trajektorie: {traj}")
@@ -391,6 +399,11 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points=100, rot
     y_uniform = interp_y(target_lengths)
 
     return np.column_stack((x_uniform, y_uniform))
+
+
+
+
+
 
 
 ###
