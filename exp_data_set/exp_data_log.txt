@@ -1,0 +1,14 @@
+Folder: exp_data_set/exp_data
+Trajectory: Kreis
+Nsteps: 10
+r_anomaly: 20
+r_path: 0.5
+material: idk yet
+----------------------------------------
+Folder: exp_data_set/exp_data1
+Trajectory: Kreis
+Nsteps: 10
+r_anomaly: 20
+r_path: 0.5
+material: idk yet
+----------------------------------------
