@@ -490,14 +490,20 @@ def load_exp_data(data_set):
     for i, directory in enumerate(data_dirs):
         file_list = sorted(glob(f"{directory}*.npz"))  
         voltage_list = []
-        time 
+        temp_list = []
+        timestamp_list = []
+     
         for file in file_list:
             tmp = np.load(file, allow_pickle=True)  
-            voltage_list.append(tmp["v"])  
+            voltage_list.append(tmp["v"])
+            temp_list.append(tmp["temperature"])
+            timestamp_list.append(tmp["timestamp"])
 
-        voltage_array = np.array(voltage_list) 
+        voltage_array = np.array(voltage_list)
+        temp_array = np.array(temp_list)
+        timestamp_array = np.array(timestamp_list)
         
-    return voltage_array
+    return voltage_array, temp_array, timestamp_array
 ###
 #Function to create mesh plots and save them for comparison
 def mesh_plot_comparisons(
