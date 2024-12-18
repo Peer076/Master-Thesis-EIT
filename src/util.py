@@ -8,10 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from glob import glob
 from typing import Tuple, Union
-
-import matplotlib.pyplot as plt
-import numpy as np
-
 import imageio
 import pyeit.eit.protocol as protocol
 import pyeit.mesh as mesh
@@ -21,10 +17,15 @@ from IPython.display import Image, display
 from pyeit.eit.fem import EITForward, Forward
 from pyeit.eit.interp2d import pdegrad, sim2pts
 from PIL import Image
-import os
 from scipy.integrate import cumulative_trapezoid
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from scipy.integrate import quad
 from scipy.optimize import root_scalar
+from scipy.interpolate import interp1d
+from sklearn.decomposition import PCA
+
 
 def define_mesh_obj(n_el,use_customize_shape):
     n_el = 16  # nb of electrodes
@@ -37,10 +38,9 @@ def define_mesh_obj(n_el,use_customize_shape):
                    # Elektrodenpositionen extrahieren
 
 # Extrahiert Informationen über das Maschennetz wie Elektrodenpositionen, Knoten und Elemente
-
-
     return mesh_obj
 
+##########################
 def plot_mesh(
     mesh_obj, figsize: tuple = (6, 4), title: str = "mesh"
 ) -> None:
@@ -83,7 +83,7 @@ def plot_mesh(
     fig.set_size_inches(6, 6)
     plt.show()
 
-
+####################################
 def load_data(data_set: int, mat_complex=False, info=True):
     timestamp = list()
     perm_array = list()
@@ -113,6 +113,17 @@ def load_data(data_set: int, mat_complex=False, info=True):
         display(img)
     return eit, perm_array, d, timestamp
 
+def pca(V,angle):
+
+    pca = PCA(n_components=2)
+    V_pca = pca.fit_transform(V)
+
+    plt.figure(figsize=(10,6))
+    scatter = plt.scatter(V_pca[:, 0], V_pca[:, 1], c=angle, cmap='viridis')
+    plt.colorbar(scatter,label='Winkel (Grad)')
+    plt.xlabel('Hauptkomponente 1 (PC1)')
+    plt.ylabel('Hauptkomponente 2 (PC2)')
+    plt.show()
 
 def z_score_normalization(data, axis=(1, 2)):
     mean = np.mean(data, axis=axis, keepdims=True)
@@ -275,6 +286,7 @@ def plot_3D_traj(sphere_r, tank_r, tank_h):
     return positions
 
 
+<<<<<<< HEAD
     
 import numpy as np
 import matplotlib.pyplot as plt
@@ -286,6 +298,8 @@ from scipy.optimize import root_scalar
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
+=======
+>>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
 def calculate_arc_length(traj, r_path):
     """
     Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
@@ -309,7 +323,12 @@ def calculate_arc_length(traj, r_path):
         return length
     else:
         raise ValueError("Unbekannte Trajektorie")
+<<<<<<< HEAD
 def createTrajectory(traj, r_path, r_path_variations, bound, num_points=100, rotations=3):
+=======
+
+def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
+>>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
     """
     Erzeugt verschiedene Trajektorien-Pfade basierend auf Differentialgleichungen.
     """
@@ -381,8 +400,11 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points=100, rot
 
     return np.column_stack((x_uniform, y_uniform))
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
@@ -448,10 +470,7 @@ def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="anim
     for image in image_files:
         os.remove(image)
 ###
-def load_all_data(data_set):
-    voltage_dict = {} 
-    gamma_dict = {} 
-    anomaly_dict = {}
+def load_sim_data(data_set):
     data_dirs = sorted(glob(f"data_set/{data_set}/"))  
 
     for i, directory in enumerate(data_dirs):
@@ -471,11 +490,28 @@ def load_all_data(data_set):
         gamma_array = np.array(gamma_list)
     
         
-        voltage_dict[f"voltage{i}" if i > 0 else "voltage"] = voltage_array
-        gamma_dict[f"gamma{i}" if i > 0 else "gamma"] = gamma_array
-        anomaly_dict[f"anomaly{i}" if i > 0 else "anomaly"] = anomaly_array
+    return voltage_array, gamma_array, anomaly_array  
+
+def load_exp_data(data_set):
+    data_dirs = sorted(glob(f"exp_data_set/{data_set}/"))  
+
+    for i, directory in enumerate(data_dirs):
+        file_list = sorted(glob(f"{directory}*.npz"))  
+        voltage_list = []
+        temp_list = []
+        timestamp_list = []
+     
+        for file in file_list:
+            tmp = np.load(file, allow_pickle=True)  
+            voltage_list.append(tmp["v"])
+            temp_list.append(tmp["temperature"])
+            timestamp_list.append(tmp["timestamp"])
+
+        voltage_array = np.array(voltage_list)
+        temp_array = np.array(temp_list)
+        timestamp_array = np.array(timestamp_list)
         
-    return voltage_dict, gamma_dict, anomaly_dict  
+    return voltage_array, temp_array, timestamp_array
 ###
 #Function to create mesh plots and save them for comparison
 def mesh_plot_comparisons(
