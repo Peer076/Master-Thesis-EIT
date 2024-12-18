@@ -1,0 +1,21 @@
+folder: exp_data_set/exp_data
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.5
+material: Acryl Glas (potential offset detected)
+----------------------------------------
+folder: exp_data_set/exp_data1
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.25
+material: Acryl Glas (potential offset detected)
+----------------------------------------
+folder: exp_data_set/exp_data2
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.75
+material: Acryl Glas (potential offset detected)
+----------------------------------------
