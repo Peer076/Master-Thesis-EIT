@@ -286,8 +286,6 @@ def plot_3D_traj(sphere_r, tank_r, tank_h):
     return positions
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     
 import numpy as np
 import matplotlib.pyplot as plt
@@ -299,10 +297,6 @@ from scipy.optimize import root_scalar
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
-=======
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
-=======
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
 def calculate_arc_length(traj, r_path):
     """
     Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
@@ -326,33 +320,11 @@ def calculate_arc_length(traj, r_path):
         return length
     else:
         raise ValueError("Unbekannte Trajektorie")
-<<<<<<< HEAD
-<<<<<<< HEAD
-def createTrajectory(traj, r_path, r_path_variations, bound, num_points=100, rotations=3):
-=======
+
 
 def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
-    """
-    Erzeugt verschiedene Trajektorien-Pfade basierend auf Differentialgleichungen.
-=======
+ 
 
-def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
-    """
-    Erzeugt verschiedene Trajektorien-Pfade basierend auf Differentialgleichungen, wobei die Punkte gleichmäßig verteilt sind.
-
-    Parameters:
-    traj (str): Art der Trajektorie ("Kreis", "Acht", "Spirale")
-    r_path (float): Radius/Skalierungsfaktor des Pfades
-    r_path_variations (bool): Ob Variationen im Radius erlaubt sind
-    bound (float): Grenzen für die Radiusvariationen
-    num_points (int): Anzahl der Punkte
-    rotations (float): Anzahl der Umdrehungen der Spirale (nur für Spirale relevant)
-
-    Returns:
-    np.ndarray: [x, y] Koordinaten der Trajektorie
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
-    """
     if r_path_variations:
         lower_bound = r_path * (1 - bound)
         upper_bound = r_path * (1 + bound)
@@ -361,39 +333,32 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
     double_pi = 2 * np.pi
 
     if traj == "Kreis":
-<<<<<<< HEAD
         
         t = np.linspace(0, 2 * np.pi, num_points)
         
-=======
+
         t = np.linspace(0, double_pi, 1000)  # Erzeuge eine feine Trajektorie
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
+
         x = r_path * np.cos(t)
         y = r_path * np.sin(t)
 
     elif traj == "Acht":
-<<<<<<< HEAD
-=======
         # Berechne Skalierungsfaktor, um die Achtbahn an die Kreisbahn anzupassen
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
+
         circle_length = calculate_arc_length("Kreis", r_path)
         eight_length = calculate_arc_length("Acht", r_path)
         scaling_factor = circle_length / eight_length
 
-<<<<<<< HEAD
         t = np.linspace(0, 2 * np.pi, num_points) 
-=======
+
         t = np.linspace(0, double_pi, 1000)
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
+
         x = r_path * np.sin(t + np.pi / 2)
         y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
 
     elif traj == "Spirale":
-<<<<<<< HEAD
-        
-=======
+
         # Passe die Anzahl der Umdrehungen an, um die gleiche Streckenlänge wie beim Kreis zu erreichen
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
         def spirale_arc_length(rot):
             max_theta = double_pi * rot
             scale_factor = r_path / max_theta
@@ -406,17 +371,14 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
             length, _ = quad(integrand, 0, max_theta)
             return length
 
-<<<<<<< HEAD
-=======
         # Finde die richtige Anzahl an Umdrehungen
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
+
         target_length = calculate_arc_length("Kreis", r_path)
         rotations = np.linspace(1, 10, 1000)
         lengths = [spirale_arc_length(rot) for rot in rotations]
         optimal_rot = rotations[np.argmin(np.abs(np.array(lengths) - target_length))]
 
         max_theta = double_pi * optimal_rot
-<<<<<<< HEAD
         t = np.linspace(0, 2 * np.pi, num_points) 
         scale_factor = r_path / max_theta
         r = scale_factor * t[::-1]  
@@ -424,7 +386,6 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
         y = r * np.sin(t) 
           
         
-=======
         t = np.linspace(0, max_theta, 1000)
         scale_factor = r_path / max_theta
         r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
@@ -435,44 +396,35 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
         x = r * np.cos(t)
         y = r * np.sin(t)
         x, y = x, y  # Verschiebe den Startpunkt auf (r_path, 0)
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
 
     else:
         raise ValueError(f"Unbekannte Trajektorie: {traj}")
 
-<<<<<<< HEAD
-=======
     # Bogenlänge berechnen
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
+
     dx = np.diff(x)
     dy = np.diff(y)
     segment_lengths = np.sqrt(dx**2 + dy**2)
     cumulative_lengths = np.concatenate([[0], np.cumsum(segment_lengths)])
 
-<<<<<<< HEAD
-=======
     # Interpolation auf gleichmäßige Abstände
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
+
     target_lengths = np.linspace(0, cumulative_lengths[-1], num_points)
     interp_x = interp1d(cumulative_lengths, x, kind='linear')
     interp_y = interp1d(cumulative_lengths, y, kind='linear')
     x_uniform = interp_x(target_lengths)
     y_uniform = interp_y(target_lengths)
-<<<<<<< HEAD
+
   
 
     return np.column_stack((x_uniform, y_uniform))
 
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
-=======
+
 
     return np.column_stack((x_uniform, y_uniform))
 
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
