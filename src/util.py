@@ -8,10 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from glob import glob
 from typing import Tuple, Union
-
-import matplotlib.pyplot as plt
-import numpy as np
-
 import imageio
 import pyeit.eit.protocol as protocol
 import pyeit.mesh as mesh
@@ -21,7 +17,15 @@ from IPython.display import Image, display
 from pyeit.eit.fem import EITForward, Forward
 from pyeit.eit.interp2d import pdegrad, sim2pts
 from PIL import Image
-import os
+from scipy.integrate import cumulative_trapezoid
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+from scipy.integrate import quad
+from scipy.optimize import root_scalar
+from scipy.interpolate import interp1d
+from sklearn.decomposition import PCA
+
 
 def define_mesh_obj(n_el,use_customize_shape):
     n_el = 16  # nb of electrodes
@@ -34,10 +38,9 @@ def define_mesh_obj(n_el,use_customize_shape):
                    # Elektrodenpositionen extrahieren
 
 # Extrahiert Informationen über das Maschennetz wie Elektrodenpositionen, Knoten und Elemente
-
-
     return mesh_obj
 
+##########################
 def plot_mesh(
     mesh_obj, figsize: tuple = (6, 4), title: str = "mesh"
 ) -> None:
@@ -80,7 +83,7 @@ def plot_mesh(
     fig.set_size_inches(6, 6)
     plt.show()
 
-
+####################################
 def load_data(data_set: int, mat_complex=False, info=True):
     timestamp = list()
     perm_array = list()
@@ -110,6 +113,17 @@ def load_data(data_set: int, mat_complex=False, info=True):
         display(img)
     return eit, perm_array, d, timestamp
 
+def pca(V,angle):
+
+    pca = PCA(n_components=2)
+    V_pca = pca.fit_transform(V)
+
+    plt.figure(figsize=(10,6))
+    scatter = plt.scatter(V_pca[:, 0], V_pca[:, 1], c=angle, cmap='viridis')
+    plt.colorbar(scatter,label='Winkel (Grad)')
+    plt.xlabel('Hauptkomponente 1 (PC1)')
+    plt.ylabel('Hauptkomponente 2 (PC2)')
+    plt.show()
 
 def z_score_normalization(data, axis=(1, 2)):
     mean = np.mean(data, axis=axis, keepdims=True)
@@ -231,7 +245,7 @@ def plot_tank(r, h, ax):
     Y_cylinder, _ = np.meshgrid(r * np.sin(theta), z_cylinder)
     ax.plot_surface(X_cylinder, Y_cylinder, Z_cylinder, color='lightgray', alpha=0.5)
 
-def plot_sphere(sphere_r, tank_r, tank_h):
+def plot_3D_traj(sphere_r, tank_r, tank_h):
 
     r_path = 0.75
     fig = plt.figure()
@@ -239,14 +253,23 @@ def plot_sphere(sphere_r, tank_r, tank_h):
     plot_tank(tank_r, tank_h, ax)
 
     traj = "helix"
-    helix_turns = 5  
-    helix_steps = 1000
+     
+    N_steps = 100
     match traj:
         case "helix":
-            t = np.linspace(0, 2 * np.pi * helix_turns, helix_steps)
-            sphere_x = tank_r*r_path * np.cos(t)
-            sphere_y = tank_r*r_path * np.sin(t)
-            sphere_z = np.linspace(0, tank_h, helix_steps)
+            helix_turns = 1
+            theta = np.linspace(0, 2 * np.pi * helix_turns, N_steps)
+            sphere_x = tank_r*r_path * np.cos(theta)
+            sphere_y = tank_r*r_path * np.sin(theta)
+            sphere_z = np.linspace(0, tank_h, N_steps)
+
+        case "ellipse":
+            tilt_angle = 45
+            angle_rad = np.radians(tilt_angle)
+            theta = np.linspace(0, 2*np.pi, N_steps)
+            sphere_x = tank_r * np.cos(theta)
+            sphere_y = (tank_r * np.sin(theta)) / np.cos(angle_rad)
+            sphere_z = tank_h/2 * np.ones_like(theta)
 
     positions = np.column_stack((sphere_x, sphere_y, sphere_z))
     
@@ -262,35 +285,147 @@ def plot_sphere(sphere_r, tank_r, tank_h):
     
     return positions
 
-def createTrajectory(traj,a,r_path):
-    # Erzeugt verschiedene Trajektorien-Pfade basierend auf dem 'traj'-Parameter
-    match traj:
-            case "circle":
-                    center=[np.cos(a)*r_path,np.sin(a)*r_path]
-            case "flower":
-                    n=2
-                    r = np.sqrt(abs(np.cos(n*a)))
-                    center=[np.cos(a)*r*r_path,np.sin(a)*r_path*r]
-            case "eight":
-                    center=[np.sin(a)*r_path,np.sin(2*a)*r_path/2]
-            case "spiral":
-                    spiral_r = r_path * (a / (2 * np.pi))  # Lineares Wachstum mit dem Winkel
-                    center = [spiral_r * np.cos(a), spiral_r * np.sin(a)]
-            case "pendel":
-                    modified_angle = np.pi/np.sin(a)
-                    center = [np.cos(modified_angle) * r_path, np.sin(modified_angle) * r_path]
-            case "ellipse":
-                    Rotation = True
-                    b = r_path
-                    c = r_path / 2
-                    center = [b*np.cos(a),c*np.sin(a)]
-                    if Rotation == True:
-                          x = center[0]
-                          center[0] = center[1]
-                          center[1] = x
-                    
-    return center
 
+    
+import numpy as np
+import matplotlib.pyplot as plt
+
+from matplotlib.patches import Circle
+from scipy.integrate import quad
+from scipy.optimize import root_scalar
+
+from scipy.integrate import quad
+from scipy.interpolate import interp1d
+
+def calculate_arc_length(traj, r_path):
+    """
+    Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
+
+    Parameters:
+    traj (str): Art der Trajektorie ("Kreis" oder "Acht")
+    r_path (float): Radius/Skalierungsfaktor der Trajektorie
+
+    Returns:
+    float: Bogenlänge
+    """
+    if traj == "Kreis":
+        return 2 * np.pi * r_path
+    elif traj == "Acht":
+        def integrand(t):
+            dx_dt = r_path * np.cos(t)
+            dy_dt = -r_path * np.cos(2 * t)
+            return np.sqrt(dx_dt**2 + dy_dt**2)
+
+        length, _ = quad(integrand, 0, 2 * np.pi)
+        return length
+    else:
+        raise ValueError("Unbekannte Trajektorie")
+
+
+def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
+ 
+
+    if r_path_variations:
+        lower_bound = r_path * (1 - bound)
+        upper_bound = r_path * (1 + bound)
+        r_path = np.random.uniform(lower_bound, upper_bound)
+
+    double_pi = 2 * np.pi
+
+    if traj == "Kreis":
+        
+        t = np.linspace(0, 2 * np.pi, num_points)
+        
+
+        t = np.linspace(0, double_pi, 1000)  # Erzeuge eine feine Trajektorie
+
+        x = r_path * np.cos(t)
+        y = r_path * np.sin(t)
+
+    elif traj == "Acht":
+        # Berechne Skalierungsfaktor, um die Achtbahn an die Kreisbahn anzupassen
+
+        circle_length = calculate_arc_length("Kreis", r_path)
+        eight_length = calculate_arc_length("Acht", r_path)
+        scaling_factor = circle_length / eight_length
+
+        t = np.linspace(0, 2 * np.pi, num_points) 
+
+        t = np.linspace(0, double_pi, 1000)
+
+        x = r_path * np.sin(t + np.pi / 2)
+        y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
+
+    elif traj == "Spirale":
+
+        # Passe die Anzahl der Umdrehungen an, um die gleiche Streckenlänge wie beim Kreis zu erreichen
+        def spirale_arc_length(rot):
+            max_theta = double_pi * rot
+            scale_factor = r_path / max_theta
+
+            def integrand(t):
+                r = scale_factor * t
+                dr_dt = scale_factor
+                return np.sqrt((r * -np.sin(t))**2 + (r * np.cos(t))**2 + dr_dt**2)
+
+            length, _ = quad(integrand, 0, max_theta)
+            return length
+
+        # Finde die richtige Anzahl an Umdrehungen
+
+        target_length = calculate_arc_length("Kreis", r_path)
+        rotations = np.linspace(1, 10, 1000)
+        lengths = [spirale_arc_length(rot) for rot in rotations]
+        optimal_rot = rotations[np.argmin(np.abs(np.array(lengths) - target_length))]
+
+        max_theta = double_pi * optimal_rot
+        t = np.linspace(0, 2 * np.pi, num_points) 
+        scale_factor = r_path / max_theta
+        r = scale_factor * t[::-1]  
+        x = r * np.cos(t)
+        y = r * np.sin(t) 
+          
+        
+        t = np.linspace(0, max_theta, 1000)
+        scale_factor = r_path / max_theta
+        r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
+        x = r * np.cos(t)
+        y = r * np.sin(t)
+
+        # Starte bei (r_path, 0) und passe die Orientierung an
+        x = r * np.cos(t)
+        y = r * np.sin(t)
+        x, y = x, y  # Verschiebe den Startpunkt auf (r_path, 0)
+
+    else:
+        raise ValueError(f"Unbekannte Trajektorie: {traj}")
+
+    # Bogenlänge berechnen
+
+    dx = np.diff(x)
+    dy = np.diff(y)
+    segment_lengths = np.sqrt(dx**2 + dy**2)
+    cumulative_lengths = np.concatenate([[0], np.cumsum(segment_lengths)])
+
+    # Interpolation auf gleichmäßige Abstände
+
+    target_lengths = np.linspace(0, cumulative_lengths[-1], num_points)
+    interp_x = interp1d(cumulative_lengths, x, kind='linear')
+    interp_y = interp1d(cumulative_lengths, y, kind='linear')
+    x_uniform = interp_x(target_lengths)
+    y_uniform = interp_y(target_lengths)
+
+  
+
+    return np.column_stack((x_uniform, y_uniform))
+
+
+
+
+
+    return np.column_stack((x_uniform, y_uniform))
+
+###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
     tri = mesh_obj.element                      # Elemente extrahieren
@@ -354,6 +489,166 @@ def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="anim
     # Einzelbilder löschen
     for image in image_files:
         os.remove(image)
+###
+def load_sim_data(data_set):
+    data_dirs = sorted(glob(f"data_set/{data_set}/"))  
 
+    for i, directory in enumerate(data_dirs):
+        file_list = sorted(glob(f"{directory}*.npz"))  
+        voltage_list = []
+        gamma_list = []
+        anomaly_list = []
+
+        for file in file_list:
+            tmp = np.load(file, allow_pickle=True)  
+            voltage_list.append(tmp["v"])  
+            gamma_list.append(tmp["gamma"])
+            anomaly_list.append(tmp["anomaly"])
+
+        voltage_array = np.array(voltage_list) 
+        anomaly_array = np.array(anomaly_list)
+        gamma_array = np.array(gamma_list)
     
+        
+    return voltage_array, gamma_array, anomaly_array  
+
+def load_exp_data(data_set):
+    data_dirs = sorted(glob(f"exp_data_set/{data_set}/"))  
+
+    for i, directory in enumerate(data_dirs):
+        file_list = sorted(glob(f"{directory}*.npz"))  
+        voltage_list = []
+        temp_list = []
+        timestamp_list = []
+     
+        for file in file_list:
+            tmp = np.load(file, allow_pickle=True)  
+            voltage_list.append(tmp["v"])
+            temp_list.append(tmp["temperature"])
+            timestamp_list.append(tmp["timestamp"])
+
+        voltage_array = np.array(voltage_list)
+        temp_array = np.array(temp_list)
+        timestamp_array = np.array(timestamp_list)
+        
+    return voltage_array, temp_array, timestamp_array
+###
+#Function to create mesh plots and save them for comparison
+def mesh_plot_comparisons(
+    mesh_obj,
+    selected_indices,
+    selected_true_perms,
+    selected_predicted_perms,
+    save_dir="comparison_plots",
+    gif_name="comparison.gif",
+    gif_title="Mesh Comparison",
+    fps=1,
+):
+    os.makedirs(save_dir, exist_ok=True)
+
+    images = []
+
+    for i in range(len(selected_indices)):
+        true_perm = selected_true_perms[i].flatten()
+        pred_perm = selected_predicted_perms[i].flatten()
+
+        assert len(true_perm) == len(
+            mesh_obj.element
+        ), f"Length of true_perm ({len(true_perm)}) does not match number of elements ({len(mesh_obj.element)})"
+        assert len(pred_perm) == len(
+            mesh_obj.element
+        ), f"Length of pred_perm ({len(pred_perm)}) does not match number of elements ({len(mesh_obj.element)})"
+
+        fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+        fig.suptitle(gif_title, fontsize=16)
+
+        plot_mesh_permarray(
+            mesh_obj,
+            true_perm,
+            ax=axs[0],
+            title="Original",
+            sample_index=selected_indices[i],
+        )
+        plot_mesh_permarray(
+            mesh_obj,
+            pred_perm,
+            ax=axs[1],
+            title="Predicted",
+            sample_index=selected_indices[i],
+        )
+
+        filename = os.path.join(save_dir, f"comparison_{i + 1}.png")
+        plt.savefig(filename, format="png", dpi=300)
+        plt.savefig(filename + ".pdf")
+        plt.show()
+
+        images.append(imageio.imread(filename))
+        plt.close(fig)
+
+    gif_path = os.path.join(save_dir, gif_name)
+    duration_per_frame = 1000 / fps
+    imageio.mimsave(gif_path, images, duration=duration_per_frame, loop=0)
+
+    png_dats = glob(os.path.join(save_dir, "*.png"))
+    for dat in png_dats:
+        os.remove(dat)
+###
+def plot_boxplot(
+    data, ylabel, title, savefig_name, save_dir="plots", figsize=(6, 8), dpi=300
+):
+    os.makedirs(save_dir, exist_ok=True)
+    plt.figure(figsize=figsize)
+    plt.boxplot(data)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    save_path = os.path.join(save_dir, savefig_name)
+    plt.savefig(save_path, format="png", dpi=dpi)
+    plt.show()
+###
+# Function to select a number of random instances for mesh plots comparison
+def select_random_instances(x_test, y_test, predicted_permittivities, num_instances=10):
+    random_indices = random.sample(range(x_test.shape[0]), num_instances)
+    selected_true_perms = y_test[random_indices]
+    selected_predicted_perms = predicted_permittivities[random_indices]
+    return random_indices, selected_true_perms, selected_predicted_perms
+
+###
+def calculate_perm_error(X_true, X_pred):
+    perm_error = list()
+    obj_threshold = (np.max(X_true) - np.min(X_true)) / 2
+    mesh_obj = mesh.create(n_el=32, h0=0.05)
+
+    for perm_true, perm_pred in zip(X_true, X_pred):
+        perm_error.append(
+            compute_perm_deviation(
+                mesh_obj, perm_true, perm_pred, obj_threshold, plot=False
+            )
+        )
+    perm_error = np.array(perm_error)
+
+    return perm_error
+
+# Functions to compute FEM deviations for box plot
+def compute_perm_deviation(
+    mesh_obj,
+    perm_true: np.ndarray,
+    perm_pred: np.ndarray,
+    obj_threshold: Union[int, float],
+    plot: bool = False,
+) -> int:
+    # Identify object indices based on threshold
+    obj_idx_true = np.where(perm_true > obj_threshold)[0]
+    obj_idx_pred = np.where(perm_pred > obj_threshold)[0]
+
+    perm_dev = len(obj_idx_pred) - len(obj_idx_true)
+
+    return perm_dev
+
+# Auswahl zufälliger Instanzen unter Verwendung der Indizes aus test_indices
+def select_random_instances_mapper(x_test, y_test, predicted_permittivities, indices, num_instances=10):
+    random_indices = random.sample(range(x_test.shape[0]), num_instances)
+    selected_true_perms = y_test[random_indices]
+    selected_predicted_perms = predicted_permittivities[random_indices]
+    selected_indices = indices[random_indices]  # Hole die tatsächlichen Indizes
+    return selected_indices, selected_true_perms, selected_predicted_perms
 
