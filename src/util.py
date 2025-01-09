@@ -212,7 +212,6 @@ def plot_mesh_permarray(mesh_obj, perm_array, ax=None, title="Mesh", sample_inde
 
     im = ax.tripcolor(x, y, tri, perm_array, shading="flat", edgecolor="k", alpha=0.8)
 
-    # Annotate each element with its index
     for j, el in enumerate(el_pos):
         ax.text(pts[el, 0], pts[el, 1], str(j + 1), color="red")
 
@@ -321,7 +320,6 @@ def calculate_arc_length(traj, r_path):
     else:
         raise ValueError("Unbekannte Trajektorie")
 
-
 def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
  
 
@@ -329,29 +327,25 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
         lower_bound = r_path * (1 - bound)
         upper_bound = r_path * (1 + bound)
         r_path = np.random.uniform(lower_bound, upper_bound)
-
+    
     double_pi = 2 * np.pi
-
+    
+    t = np.linspace(0, double_pi, 1000)
+    
     if traj == "Kreis":
-        
-        t = np.linspace(0, 2 * np.pi, num_points)
-        
-
-        t = np.linspace(0, double_pi, 1000)  # Erzeuge eine feine Trajektorie
-
         x = r_path * np.cos(t)
         y = r_path * np.sin(t)
+        
+    elif traj == "Ellipse":
+        a = r_path  # Große Halbachse
+        b = 0.7 * r_path  # Kleine Halbachse
+        x = a * np.cos(t)
+        y = b * np.sin(t)
 
     elif traj == "Acht":
-        # Berechne Skalierungsfaktor, um die Achtbahn an die Kreisbahn anzupassen
-
         circle_length = calculate_arc_length("Kreis", r_path)
         eight_length = calculate_arc_length("Acht", r_path)
         scaling_factor = circle_length / eight_length
-
-        t = np.linspace(0, 2 * np.pi, num_points) 
-
-        t = np.linspace(0, double_pi, 1000)
 
         x = r_path * np.sin(t + np.pi / 2)
         y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
@@ -385,17 +379,16 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
         x = r * np.cos(t)
         y = r * np.sin(t) 
           
-        
+
         t = np.linspace(0, max_theta, 1000)
         scale_factor = r_path / max_theta
         r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
         x = r * np.cos(t)
         y = r * np.sin(t)
 
-        # Starte bei (r_path, 0) und passe die Orientierung an
         x = r * np.cos(t)
         y = r * np.sin(t)
-        x, y = x, y  # Verschiebe den Startpunkt auf (r_path, 0)
+        x, y = x, y
 
     else:
         raise ValueError(f"Unbekannte Trajektorie: {traj}")
@@ -415,15 +408,9 @@ def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotatio
     x_uniform = interp_x(target_lengths)
     y_uniform = interp_y(target_lengths)
 
-  
-
     return np.column_stack((x_uniform, y_uniform))
 
 
-
-
-
-    return np.column_stack((x_uniform, y_uniform))
 
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
@@ -520,18 +507,22 @@ def load_exp_data(data_set):
         voltage_list = []
         temp_list = []
         timestamp_list = []
+        position_list = []
      
         for file in file_list:
             tmp = np.load(file, allow_pickle=True)  
             voltage_list.append(tmp["v"])
             temp_list.append(tmp["temperature"])
             timestamp_list.append(tmp["timestamp"])
+            position_list.append(tmp["position"])
+            
 
         voltage_array = np.array(voltage_list)
         temp_array = np.array(temp_list)
         timestamp_array = np.array(timestamp_list)
+        position_array = np.array(position_list)
         
-    return voltage_array, temp_array, timestamp_array
+    return voltage_array, temp_array, timestamp_array, position_array
 ###
 #Function to create mesh plots and save them for comparison
 def mesh_plot_comparisons(
