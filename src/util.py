@@ -346,33 +346,38 @@ def create_trajectory(traj_type, radius, num_points, reference_radius=0.25, base
         # Calculate reference circle circumference
         circle_circumference = 2 * np.pi * radius
         
-        # Generate initial snake pattern with more points for better length calculation
-        x_temp = np.linspace(-0.75*radius, 0.75*radius, 2000)
-        frequency = 3
+        # Generate parameter t for Folium curve
+        # Using more points for smooth curve
+        t = np.linspace(-3, 3, 1000)  
         
-        # Start with initial amplitude and adjust iteratively
-        target_length = circle_circumference
-        amplitude = 0.2 * radius  # Initial guess
-        max_iterations = 10
-        tolerance = 0.01
+        # Scale factor to control the size of the Folium
+        a = radius * 0.5  # Scale factor, adjust as needed
         
-        for _ in range(max_iterations):
-            y_temp = amplitude * np.sin(frequency * np.pi * (x_temp/radius + 1))
-            
-            # Calculate current snake length
-            dx_temp = np.diff(x_temp)
-            dy_temp = np.diff(y_temp)
-            current_length = np.sum(np.sqrt(dx_temp**2 + dy_temp**2))
-            
-            # Adjust amplitude based on length difference
-            if abs(current_length - target_length) < tolerance:
-                break
-            
-            amplitude *= np.sqrt(target_length / current_length)
+        # Parametric equations for Folium curve
+        x = a * (t**3 - 3*t) / (1 + t**2)
+        y = a * (t**2 - 1) / (1 + t**2)
         
-        # Generate final snake with adjusted amplitude
-        x = np.linspace(-0.75*radius, 0.75*radius, 1000)
-        y = amplitude * np.sin(frequency * np.pi * (x/radius + 1))
+        # Calculate current curve length
+        dx = np.diff(x)
+        dy = np.diff(y)
+        current_length = np.sum(np.sqrt(dx**2 + dy**2))
+        
+        # Scale the curve to match target length while maintaining shape
+        scale = np.sqrt(circle_circumference / current_length)
+        x *= scale
+        y *= scale
+        
+        # Verify that curve stays within unit circle and rescale if necessary
+        max_radius = np.max(np.sqrt(x**2 + y**2))
+        if max_radius > radius:
+            scaling_factor = (radius / max_radius) * 0.95  # 0.95 adds a small safety margin
+            x *= scaling_factor
+            y *= scaling_factor
+        
+        # Remove any NaN values that might occur
+        mask = ~(np.isnan(x) | np.isnan(y))
+        x = x[mask]
+        y = y[mask]
         
     else:
         raise ValueError("Invalid trajectory type. Choose 'Kreis', 'Ellipse', 'Acht', 'Spirale', or 'Schlange'")

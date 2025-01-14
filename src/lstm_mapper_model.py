@@ -12,7 +12,7 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.models import Model
 
 
-def lstm_mapper_model(input_shape=(4, 16, 12, 1), output_shape=8):
+def mapper_model(input_shape=(4, 32, 32, 1), output_shape=8):
     mapper_inputs = Input(shape=input_shape)
 
     x = TimeDistributed(
@@ -30,5 +30,4 @@ def lstm_mapper_model(input_shape=(4, 16, 12, 1), output_shape=8):
 
     mapper_output = Dense(output_shape)(x)
     model = Model(mapper_inputs, mapper_output, name="lstm_mapper")
-    
     return model
