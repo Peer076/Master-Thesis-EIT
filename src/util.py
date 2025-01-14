@@ -284,134 +284,103 @@ def plot_3D_traj(sphere_r, tank_r, tank_h):
     
     return positions
 
-
-    
-import numpy as np
-import matplotlib.pyplot as plt
-
-from matplotlib.patches import Circle
-from scipy.integrate import quad
-from scipy.optimize import root_scalar
-
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-
-def calculate_arc_length(traj, r_path):
+def interpolate_equidistant_points(x, y, num_points):
     """
-    Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
-
-    Parameters:
-    traj (str): Art der Trajektorie ("Kreis" oder "Acht")
-    r_path (float): Radius/Skalierungsfaktor der Trajektorie
-
-    Returns:
-    float: Bogenlänge
+    Interpolate points along the curve to create equidistant spacing
     """
-    if traj == "Kreis":
-        return 2 * np.pi * r_path
-    elif traj == "Acht":
-        def integrand(t):
-            dx_dt = r_path * np.cos(t)
-            dy_dt = -r_path * np.cos(2 * t)
-            return np.sqrt(dx_dt**2 + dy_dt**2)
-
-        length, _ = quad(integrand, 0, 2 * np.pi)
-        return length
-    else:
-        raise ValueError("Unbekannte Trajektorie")
-
-def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
- 
-
-    if r_path_variations:
-        lower_bound = r_path * (1 - bound)
-        upper_bound = r_path * (1 + bound)
-        r_path = np.random.uniform(lower_bound, upper_bound)
-    
-    double_pi = 2 * np.pi
-    
-    t = np.linspace(0, double_pi, 1000)
-    
-    if traj == "Kreis":
-        x = r_path * np.cos(t)
-        y = r_path * np.sin(t)
-        
-    elif traj == "Ellipse":
-        a = r_path  # Große Halbachse
-        b = 0.7 * r_path  # Kleine Halbachse
-        x = a * np.cos(t)
-        y = b * np.sin(t)
-
-    elif traj == "Acht":
-        circle_length = calculate_arc_length("Kreis", r_path)
-        eight_length = calculate_arc_length("Acht", r_path)
-        scaling_factor = circle_length / eight_length
-
-        x = r_path * np.sin(t + np.pi / 2)
-        y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
-
-    elif traj == "Spirale":
-
-        # Passe die Anzahl der Umdrehungen an, um die gleiche Streckenlänge wie beim Kreis zu erreichen
-        def spirale_arc_length(rot):
-            max_theta = double_pi * rot
-            scale_factor = r_path / max_theta
-
-            def integrand(t):
-                r = scale_factor * t
-                dr_dt = scale_factor
-                return np.sqrt((r * -np.sin(t))**2 + (r * np.cos(t))**2 + dr_dt**2)
-
-            length, _ = quad(integrand, 0, max_theta)
-            return length
-
-        # Finde die richtige Anzahl an Umdrehungen
-
-        target_length = calculate_arc_length("Kreis", r_path)
-        rotations = np.linspace(1, 10, 1000)
-        lengths = [spirale_arc_length(rot) for rot in rotations]
-        optimal_rot = rotations[np.argmin(np.abs(np.array(lengths) - target_length))]
-
-        max_theta = double_pi * optimal_rot
-        t = np.linspace(0, 2 * np.pi, num_points) 
-        scale_factor = r_path / max_theta
-        r = scale_factor * t[::-1]  
-        x = r * np.cos(t)
-        y = r * np.sin(t) 
-          
-
-        t = np.linspace(0, max_theta, 1000)
-        scale_factor = r_path / max_theta
-        r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
-        x = r * np.cos(t)
-        y = r * np.sin(t)
-
-        x = r * np.cos(t)
-        y = r * np.sin(t)
-        x, y = x, y
-
-    else:
-        raise ValueError(f"Unbekannte Trajektorie: {traj}")
-
-    # Bogenlänge berechnen
-
     dx = np.diff(x)
     dy = np.diff(y)
     segment_lengths = np.sqrt(dx**2 + dy**2)
     cumulative_lengths = np.concatenate([[0], np.cumsum(segment_lengths)])
-
-    # Interpolation auf gleichmäßige Abstände
-
+    
     target_lengths = np.linspace(0, cumulative_lengths[-1], num_points)
+    
     interp_x = interp1d(cumulative_lengths, x, kind='linear')
     interp_y = interp1d(cumulative_lengths, y, kind='linear')
-    x_uniform = interp_x(target_lengths)
-    y_uniform = interp_y(target_lengths)
+    
+    return interp_x(target_lengths), interp_y(target_lengths)
 
+def create_trajectory(traj_type, radius, num_points, reference_radius=0.25, base_rotations=1):
+    """
+    Create a trajectory with constant point spacing based on reference circle
+    
+    Parameters:
+    traj_type (str): Type of trajectory ('Kreis', 'Ellipse', 'Acht', 'Spirale', 'Schlange')
+    radius (float): Base radius/size of the trajectory
+    base_points (int): Number of points for reference circle
+    reference_radius (float): Radius of reference circle (default 0.25)
+    base_rotations (int): Number of rotations for spiral (default 2)
+    
+    Returns:
+    numpy.ndarray: Array of points with consistent spacing
+    """
+    
+    # Generate initial dense set of points
+    t = np.linspace(0, 2*np.pi, 1000)
+    
+    if traj_type == "Kreis":
+        x = radius * np.cos(t)
+        y = radius * np.sin(t)
+        
+    elif traj_type == "Ellipse":
+        a = radius  # Major axis
+        b = 0.7 * radius  # Minor axis
+        x = a * np.cos(t)
+        y = b * np.sin(t)
+        
+    elif traj_type == "Acht":
+        x = radius * np.sin(t)
+        y = radius * np.sin(2*t) / 2
+        
+    elif traj_type == "Spirale":
+        # For spiral, we need more points for multiple rotations
+        rotations = base_rotations + (num_points // 1000)
+        t = np.linspace(0, 2*np.pi*rotations, 1000)
+        
+        
+        r = radius * (1 - t/(2*np.pi*rotations))
+        x = r * np.cos(t)
+        y = r * np.sin(t)
+        
+    elif traj_type == "Schlange":
+        # Calculate reference circle circumference
+        circle_circumference = 2 * np.pi * radius
+        
+        # Generate initial snake pattern with more points for better length calculation
+        x_temp = np.linspace(-0.75*radius, 0.75*radius, 2000)
+        frequency = 3
+        
+        # Start with initial amplitude and adjust iteratively
+        target_length = circle_circumference
+        amplitude = 0.2 * radius  # Initial guess
+        max_iterations = 10
+        tolerance = 0.01
+        
+        for _ in range(max_iterations):
+            y_temp = amplitude * np.sin(frequency * np.pi * (x_temp/radius + 1))
+            
+            # Calculate current snake length
+            dx_temp = np.diff(x_temp)
+            dy_temp = np.diff(y_temp)
+            current_length = np.sum(np.sqrt(dx_temp**2 + dy_temp**2))
+            
+            # Adjust amplitude based on length difference
+            if abs(current_length - target_length) < tolerance:
+                break
+            
+            amplitude *= np.sqrt(target_length / current_length)
+        
+        # Generate final snake with adjusted amplitude
+        x = np.linspace(-0.75*radius, 0.75*radius, 1000)
+        y = amplitude * np.sin(frequency * np.pi * (x/radius + 1))
+        
+    else:
+        raise ValueError("Invalid trajectory type. Choose 'Kreis', 'Ellipse', 'Acht', 'Spirale', or 'Schlange'")
+    
+    # Interpolate to get equidistant points with adjusted number of points
+    x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+    
     return np.column_stack((x_uniform, y_uniform))
-
-
-
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren

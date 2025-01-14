@@ -19,7 +19,6 @@ r_anomaly: 20
 r_path: 0.75
 material: Acryl Glas (potential offset detected)
 ----------------------------------------
-<<<<<<< HEAD
 folder: exp_data_set/exp_data3
 Trajectory: Kreis
 Nsteps: 20
@@ -41,7 +40,6 @@ r_anomaly: 20
 r_path: 0.75
 material: Acryl Glas
 ----------------------------------------
-
 folder: exp_data_set/exp_data6
 Trajectory: Kreis
 Nsteps: 1000
@@ -49,14 +47,14 @@ r_anomaly: 20
 r_path: 0.5
 material: Acryl Glas
 ----------------------------------------
-=======
->>>>>>> 8fa9f0c9bd96ebb7d3459d53c357ed499ecdc0b1
 folder: exp_data_set/exp_data7
 Trajectory: Kreis
 Nsteps: 20
 r_anomaly: 20
 r_path: 0.75
 material: Acryl Glas
+
+incomplete!!!!
 ----------------------------------------
 folder: exp_data_set/exp_data8
 Trajectory: Kreis
