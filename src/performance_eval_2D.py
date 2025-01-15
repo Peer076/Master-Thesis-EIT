@@ -124,7 +124,9 @@ def plot_random_deviations(mesh_obj, true_perms, predicted_perms, num_samples=10
         print(f"Plot saved to: {full_path}")
     
 
-def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples):
+def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples, 
+                             save=False, fpath='', fname=''):
+    
     random_indices = np.random.choice(len(true_perm), size=num_samples, replace=False)
     
     cols = 5
@@ -137,6 +139,10 @@ def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples):
     
     # Calculate triangle centers for plotting true values
     tri_centers = np.mean(pts[tri], axis=1)
+
+    # Definiere feste Wertegrenzen für alle Plots
+    vmin = 0.0
+    vmax = 0.8
     
     for i, idx in enumerate(random_indices):
         true_values = true_perm[idx].flatten()
@@ -144,16 +150,20 @@ def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples):
     
         ax = plt.subplot(rows, cols, i + 1)
         
-        # Plot predicted values with tripcolor
         im_pred = ax.tripcolor(x, y, tri, pred_values,
-                             shading="flat", edgecolor="k", alpha=1.0)
+                             shading="flat", 
+                             edgecolor="k", 
+                             alpha=1.0,
+                             cmap='viridis',  # oder 'viridis', 'jet', etc.
+                             vmin=vmin, 
+                             vmax=vmax)
         
         # Overlay true values as scatter points at triangle centers
         threshold = 0.5
         mask = true_values > threshold
         if np.any(mask):
              ax.scatter(tri_centers[mask, 0], tri_centers[mask, 1], 
-                  color='sandybrown',  # Saddlebrown oder alternativ 'brown'
+                  color='sandybrown',
                   alpha=0.15, s=10)
         
         ax.set_aspect("equal")
@@ -161,7 +171,14 @@ def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples):
         ax.set_xlim([-1.2, 1.2])
         ax.set_title(f"Sample {idx}")
         plt.colorbar(im_pred, ax=ax)
-        
+    
+    plt.tight_layout()
+    
+    if save:
+        full_path = fpath + fname
+        plt.savefig(full_path, bbox_inches='tight', dpi=300)
+        print(f"Plot saved to: {full_path}")
+    
     plt.show()
 
 
