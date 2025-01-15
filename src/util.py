@@ -300,7 +300,7 @@ def interpolate_equidistant_points(x, y, num_points):
     
     return interp_x(target_lengths), interp_y(target_lengths)
 
-def create_trajectory(traj_type, radius, num_points, reference_radius=0.25, base_rotations=1):
+def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     """
     Create a trajectory with constant point spacing based on reference circle
     
@@ -342,7 +342,7 @@ def create_trajectory(traj_type, radius, num_points, reference_radius=0.25, base
         x = r * np.cos(t)
         y = r * np.sin(t)
         
-    elif traj_type == "Schlange":
+    elif traj_type == "Folium":
         # Calculate reference circle circumference
         circle_circumference = 2 * np.pi * radius
         
