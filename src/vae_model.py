@@ -102,7 +102,7 @@ class VAE(tf.keras.Model):
 
 # The encoder model
 def encoder_model(
-    input_shape=(2821, 1), channels=(8, 16, 32, 64), strides=(2, 2, 2, 5),kernel_size=9, latent_dim=8,   #channels? strides? kernel?
+    input_shape=(2840, 1), channels=(8, 16, 32, 64), strides=(2, 2, 2, 5),kernel_size=9, latent_dim=8,   #channels? strides? kernel?
 ):
     encoder_inputs = Input(shape=input_shape)
     x = ZeroPadding1D(padding=((0, 360)))(encoder_inputs) # Fügt Nullen am Ende der Sequenz hinzu, um die Eingabedaten auf eine Länge von 2821 + 360 = 3181 zu erweitern
@@ -147,7 +147,7 @@ def decoder_model(
     x = Conv1DTranspose(1, kernel_size, activation="elu", padding="same")(x)
 
     # Crop, um von 3181 zurück auf 2821 zu kommen
-    x = Cropping1D(cropping=((9, 370)))(x)
+    x = Cropping1D(cropping=((9, 351)))(x)
     decoded = x
 
     return latent_inputs, decoded
