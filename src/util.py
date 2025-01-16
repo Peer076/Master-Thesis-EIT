@@ -297,132 +297,107 @@ from scipy.optimize import root_scalar
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
-def calculate_arc_length(traj, r_path):
+def interpolate_equidistant_points(x, y, num_points):
     """
-    Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
-
-    Parameters:
-    traj (str): Art der Trajektorie ("Kreis" oder "Acht")
-    r_path (float): Radius/Skalierungsfaktor der Trajektorie
-
-    Returns:
-    float: Bogenlänge
+    Interpolate points along the curve to create equidistant spacing
     """
-    if traj == "Kreis":
-        return 2 * np.pi * r_path
-    elif traj == "Acht":
-        def integrand(t):
-            dx_dt = r_path * np.cos(t)
-            dy_dt = -r_path * np.cos(2 * t)
-            return np.sqrt(dx_dt**2 + dy_dt**2)
-
-        length, _ = quad(integrand, 0, 2 * np.pi)
-        return length
-    else:
-        raise ValueError("Unbekannte Trajektorie")
-
-
-def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
- 
-
-    if r_path_variations:
-        lower_bound = r_path * (1 - bound)
-        upper_bound = r_path * (1 + bound)
-        r_path = np.random.uniform(lower_bound, upper_bound)
-
-    double_pi = 2 * np.pi
-
-    if traj == "Kreis":
-        
-        t = np.linspace(0, 2 * np.pi, num_points)
-        
-
-        t = np.linspace(0, double_pi, 1000)  # Erzeuge eine feine Trajektorie
-
-        x = r_path * np.cos(t)
-        y = r_path * np.sin(t)
-
-    elif traj == "Acht":
-        # Berechne Skalierungsfaktor, um die Achtbahn an die Kreisbahn anzupassen
-
-        circle_length = calculate_arc_length("Kreis", r_path)
-        eight_length = calculate_arc_length("Acht", r_path)
-        scaling_factor = circle_length / eight_length
-
-        t = np.linspace(0, 2 * np.pi, num_points) 
-
-        t = np.linspace(0, double_pi, 1000)
-
-        x = r_path * np.sin(t + np.pi / 2)
-        y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
-
-    elif traj == "Spirale":
-
-        # Passe die Anzahl der Umdrehungen an, um die gleiche Streckenlänge wie beim Kreis zu erreichen
-        def spirale_arc_length(rot):
-            max_theta = double_pi * rot
-            scale_factor = r_path / max_theta
-
-            def integrand(t):
-                r = scale_factor * t
-                dr_dt = scale_factor
-                return np.sqrt((r * -np.sin(t))**2 + (r * np.cos(t))**2 + dr_dt**2)
-
-            length, _ = quad(integrand, 0, max_theta)
-            return length
-
-        # Finde die richtige Anzahl an Umdrehungen
-
-        target_length = calculate_arc_length("Kreis", r_path)
-        rotations = np.linspace(1, 10, 1000)
-        lengths = [spirale_arc_length(rot) for rot in rotations]
-        optimal_rot = rotations[np.argmin(np.abs(np.array(lengths) - target_length))]
-
-        max_theta = double_pi * optimal_rot
-        t = np.linspace(0, 2 * np.pi, num_points) 
-        scale_factor = r_path / max_theta
-        r = scale_factor * t[::-1]  
-        x = r * np.cos(t)
-        y = r * np.sin(t) 
-          
-        
-        t = np.linspace(0, max_theta, 1000)
-        scale_factor = r_path / max_theta
-        r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
-        x = r * np.cos(t)
-        y = r * np.sin(t)
-
-        # Starte bei (r_path, 0) und passe die Orientierung an
-        x = r * np.cos(t)
-        y = r * np.sin(t)
-        x, y = x, y  # Verschiebe den Startpunkt auf (r_path, 0)
-
-    else:
-        raise ValueError(f"Unbekannte Trajektorie: {traj}")
-
-    # Bogenlänge berechnen
-
     dx = np.diff(x)
     dy = np.diff(y)
     segment_lengths = np.sqrt(dx**2 + dy**2)
     cumulative_lengths = np.concatenate([[0], np.cumsum(segment_lengths)])
-
-    # Interpolation auf gleichmäßige Abstände
-
+    
     target_lengths = np.linspace(0, cumulative_lengths[-1], num_points)
+    
     interp_x = interp1d(cumulative_lengths, x, kind='linear')
     interp_y = interp1d(cumulative_lengths, y, kind='linear')
-    x_uniform = interp_x(target_lengths)
-    y_uniform = interp_y(target_lengths)
+    
+    return interp_x(target_lengths), interp_y(target_lengths)
 
-  
-
-    return np.column_stack((x_uniform, y_uniform))
-
-
-
-
-
+def createTrajectory(traj_type, radius, num_points, reference_radius=0.25, base_rotations=1):
+    """
+    Create a trajectory with constant point spacing based on reference circle
+    
+    Parameters:
+    traj_type (str): Type of trajectory ('Kreis', 'Ellipse', 'Acht', 'Spirale', 'Schlange')
+    radius (float): Base radius/size of the trajectory
+    base_points (int): Number of points for reference circle
+    reference_radius (float): Radius of reference circle (default 0.25)
+    base_rotations (int): Number of rotations for spiral (default 2)
+    
+    Returns:
+    numpy.ndarray: Array of points with consistent spacing
+    """
+    
+    # Generate initial dense set of points
+    t = np.linspace(0, 2*np.pi, 1000)
+    
+    if traj_type == "Kreis":
+        x = radius * np.cos(t)
+        y = radius * np.sin(t)
+        
+    elif traj_type == "Ellipse":
+        a = radius  # Major axis
+        b = 0.7 * radius  # Minor axis
+        x = a * np.cos(t)
+        y = b * np.sin(t)
+        
+    elif traj_type == "Acht":
+        x = radius * np.sin(t)
+        y = radius * np.sin(2*t) / 2
+        
+    elif traj_type == "Spirale":
+        # For spiral, we need more points for multiple rotations
+        rotations = base_rotations + (num_points // 1000)
+        t = np.linspace(0, 2*np.pi*rotations, 1000)
+        
+        
+        r = radius * (1 - t/(2*np.pi*rotations))
+        x = r * np.cos(t)
+        y = r * np.sin(t)
+        
+    elif traj_type == "Schlange":
+        # Calculate reference circle circumference
+        circle_circumference = 2 * np.pi * radius
+        
+        # Generate parameter t for Folium curve
+        # Using more points for smooth curve
+        t = np.linspace(-3, 3, 1000)  
+        
+        # Scale factor to control the size of the Folium
+        a = radius * 0.5  # Scale factor, adjust as needed
+        
+        # Parametric equations for Folium curve
+        x = a * (t**3 - 3*t) / (1 + t**2)
+        y = a * (t**2 - 1) / (1 + t**2)
+        
+        # Calculate current curve length
+        dx = np.diff(x)
+        dy = np.diff(y)
+        current_length = np.sum(np.sqrt(dx**2 + dy**2))
+        
+        # Scale the curve to match target length while maintaining shape
+        scale = np.sqrt(circle_circumference / current_length)
+        x *= scale
+        y *= scale
+        
+        # Verify that curve stays within unit circle and rescale if necessary
+        max_radius = np.max(np.sqrt(x**2 + y**2))
+        if max_radius > radius:
+            scaling_factor = (radius / max_radius) * 0.95  # 0.95 adds a small safety margin
+            x *= scaling_factor
+            y *= scaling_factor
+        
+        # Remove any NaN values that might occur
+        mask = ~(np.isnan(x) | np.isnan(y))
+        x = x[mask]
+        y = y[mask]
+        
+    else:
+        raise ValueError("Invalid trajectory type. Choose 'Kreis', 'Ellipse', 'Acht', 'Spirale', or 'Schlange'")
+    
+    # Interpolate to get equidistant points with adjusted number of points
+    x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+    
     return np.column_stack((x_uniform, y_uniform))
 
 ###

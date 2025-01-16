@@ -86,3 +86,124 @@ r_anomaly: 10
 r_path: 0.25
 material: Acryl Glas
 ----------------------------------------
+folder: exp_data_set/exp_data12
+Trajectory: Acht
+Nsteps: 1000
+r_anomaly: 10
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data13
+Trajectory: Acht
+Nsteps: 1000
+r_anomaly: 10
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data14
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data15
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.75
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data16
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.25
+material: Acryl Glas
+
+incomplete!!
+----------------------------------------
+folder: exp_data_set/exp_data17
+Trajectory: Kreis
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.25
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data18
+Trajectory: Acht
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data19
+Trajectory: Acht
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.75
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data20
+Trajectory: Acht
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data21
+Trajectory: Spirale
+Nsteps: 1000
+r_anomaly: 20
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data22
+Trajectory: Spirale
+Nsteps: 1000
+r_anomaly: 20 (15)
+r_path: 0.75
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data23
+Trajectory: Spirale
+Nsteps: 1000
+r_anomaly: 20 (15)
+r_path: 0.25
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data24
+Trajectory: Ellipse
+Nsteps: 1000
+r_anomaly: 15
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data25
+Trajectory: Spirale
+Nsteps: 1000
+r_anomaly: 15
+r_path: 0.5
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data26
+Trajectory: Spirale
+Nsteps: 1000
+r_anomaly: 15
+r_path: 0.75
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data27
+Trajectory: Spirale
+Nsteps: 2000
+r_anomaly: 15
+r_path: 0.75
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data28
+Trajectory: Spirale
+Nsteps: 6000
+r_anomaly: 15
+r_path: 0.75
+material: Acryl Glas
+----------------------------------------
