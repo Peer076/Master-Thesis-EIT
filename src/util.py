@@ -315,75 +315,68 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     numpy.ndarray: Array of points with consistent spacing
     """
     
-    # Generate initial dense set of points
-    t = np.linspace(0, 2*np.pi, 1000)
+    t = np.linspace(0, 2*np.pi, num_points)
     
     if traj_type == "Kreis":
-        x = radius * np.cos(t)
-        y = radius * np.sin(t)
+        x_uniform = radius * np.cos(t)
+        y_uniform = radius * np.sin(t)
+       
         
     elif traj_type == "Ellipse":
-        a = radius  # Major axis
-        b = 0.7 * radius  # Minor axis
+        a = radius  
+        b = 0.7 * radius 
         x = a * np.cos(t)
         y = b * np.sin(t)
         
     elif traj_type == "Acht":
         x = radius * np.sin(t)
         y = radius * np.sin(2*t) / 2
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
         
     elif traj_type == "Spirale":
-        # For spiral, we need more points for multiple rotations
         rotations = base_rotations + (num_points // 1000)
         t = np.linspace(0, 2*np.pi*rotations, 1000)
-        
         
         r = radius * (1 - t/(2*np.pi*rotations))
         x = r * np.cos(t)
         y = r * np.sin(t)
         
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+        
     elif traj_type == "Folium":
-        # Calculate reference circle circumference
         circle_circumference = 2 * np.pi * radius
         
-        # Generate parameter t for Folium curve
-        # Using more points for smooth curve
         t = np.linspace(-3, 3, 1000)  
         
-        # Scale factor to control the size of the Folium
-        a = radius * 0.5  # Scale factor, adjust as needed
+        a = radius * 0.5  
         
-        # Parametric equations for Folium curve
         x = a * (t**3 - 3*t) / (1 + t**2)
         y = a * (t**2 - 1) / (1 + t**2)
         
-        # Calculate current curve length
         dx = np.diff(x)
         dy = np.diff(y)
         current_length = np.sum(np.sqrt(dx**2 + dy**2))
         
-        # Scale the curve to match target length while maintaining shape
         scale = np.sqrt(circle_circumference / current_length)
         x *= scale
         y *= scale
         
-        # Verify that curve stays within unit circle and rescale if necessary
         max_radius = np.max(np.sqrt(x**2 + y**2))
         if max_radius > radius:
-            scaling_factor = (radius / max_radius) * 0.95  # 0.95 adds a small safety margin
+            scaling_factor = (radius / max_radius) * 0.95  
             x *= scaling_factor
             y *= scaling_factor
         
-        # Remove any NaN values that might occur
         mask = ~(np.isnan(x) | np.isnan(y))
         x = x[mask]
         y = y[mask]
         
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+        
     else:
         raise ValueError("Invalid trajectory type. Choose 'Kreis', 'Ellipse', 'Acht', 'Spirale', or 'Schlange'")
     
-    # Interpolate to get equidistant points with adjusted number of points
-    x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+    
     
     return np.column_stack((x_uniform, y_uniform))
 ###
@@ -627,70 +620,6 @@ from .classes import (
 )
 
 
-def plot_ball(
-    ball: BallAnomaly,
-    boundary: Boundary,
-    res: int = 50,
-    elev: int = 25,
-    azim: int = 10,
-):
-    u = np.linspace(0, 2 * np.pi, res)
-    v = np.linspace(0, np.pi, res)
-
-    x_c = ball.x + ball.d / 2 * np.outer(np.cos(u), np.sin(v))
-    y_c = ball.y + ball.d / 2 * np.outer(np.sin(u), np.sin(v))
-    z_c = ball.z + ball.d / 2 * np.outer(np.ones(np.size(u)), np.cos(v))
-
-    fig = plt.figure(figsize=(4, 4))
-    ax = fig.add_subplot(111, projection="3d")
-    # ball
-    ax.plot_surface(x_c, y_c, z_c, color="C0", alpha=1)
-
-    ax.set_xlim([boundary.x_0, boundary.x_length])
-    ax.set_ylim([boundary.y_0, boundary.y_length])
-    ax.set_zlim([boundary.z_0, boundary.z_length])
-
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-
-    ax.view_init(elev=elev, azim=azim)
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_voxel_c(voxelarray, elev=20, azim=10):
-    """
-    fc : facecolor of the voxels
-    """
-    # C0 -> acrylic
-    # C1 -> metal
-    colors = ["C0", "C1"]  # Define colors for 1 and 2 values respectively
-
-    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
-    # ax.voxels(voxelarray.transpose(1, 0, 2))
-    ax.voxels(
-        voxelarray.transpose(1, 0, 2), facecolors=colors[int(np.max(voxelarray) - 1)]
-    )
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    ax.view_init(azim=azim, elev=elev)
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_voxel(voxelarray, fc=0, elev=20, azim=10):
-    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
-    ax.voxels(voxelarray.transpose(1, 0, 2), facecolors=f"C{fc}")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    ax.view_init(azim=azim, elev=elev)
-    plt.tight_layout()
-    plt.show()
-
-
 def voxel_ball(ball, boundary, empty_gnd=0, mask=False):
     y, x, z = np.indices((boundary.x_length, boundary.y_length, boundary.z_length))
     voxel = (
@@ -699,7 +628,7 @@ def voxel_ball(ball, boundary, empty_gnd=0, mask=False):
     if mask:
         return voxel
     else:
-        return np.where(voxel, ball.γ, empty_gnd)
+        return np.where(voxel, ball.perm, empty_gnd)
 
 
 def plot_reconstruction_set(
@@ -758,3 +687,22 @@ def read_json_file(file_path):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
+def plot_voxel_c(voxelarray, elev=20, azim=10):
+    """
+    fc : facecolor of the voxels
+    """
+    # C0 -> acrylic
+    # C1 -> metal
+    colors = ["C0", "C1"]  # Define colors for 1 and 2 values respectively
+
+    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
+    # ax.voxels(voxelarray.transpose(1, 0, 2))
+    ax.voxels(
+        voxelarray.transpose(1, 0, 2), facecolors=colors[int(np.max(voxelarray) - 1)]
+    )
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.view_init(azim=azim, elev=elev)
+    plt.tight_layout()
+    plt.show()

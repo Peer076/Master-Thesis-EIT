@@ -31,6 +31,7 @@ from tensorflow.keras.models import Model
 from tqdm import tqdm
 import pandas as pd
 import seaborn as sns
+from PIL import Image  
 
 def compute_evaluation_metrics(mesh_obj, true_perm, pred_perm, threshold=0.5):
     
@@ -130,7 +131,7 @@ def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples,
     random_indices = np.random.choice(len(true_perm), size=num_samples, replace=False)
     
     cols = 5
-    rows = 2
+    rows = 5
     fig = plt.figure(figsize=(4*cols, 4*rows))
     
     pts = mesh_obj.node
@@ -140,50 +141,68 @@ def plot_random_recon_examples(mesh_obj, true_perm, pred_perm, num_samples,
     # Calculate triangle centers for plotting true values
     tri_centers = np.mean(pts[tri], axis=1)
 
-    # Definiere feste Wertegrenzen für alle Plots
-    vmin = 0.0
-    vmax = 0.8
-    
     for i, idx in enumerate(random_indices):
         true_values = true_perm[idx].flatten()
         pred_values = pred_perm[idx].flatten()
     
         ax = plt.subplot(rows, cols, i + 1)
-        
-        im_pred = ax.tripcolor(x, y, tri, pred_values,
-                             shading="flat", 
-                             edgecolor="k", 
-                             alpha=1.0,
-                             cmap='viridis',  # oder 'viridis', 'jet', etc.
-                             vmin=vmin, 
-                             vmax=vmax)
-        
-        # Overlay true values as scatter points at triangle centers
+        ax.set_xticks([])
+        ax.set_yticks([])
+        im_ped = ax.tripcolor(x, y, tri, pred_values, shading="flat", edgecolor ='none', linewidth=0.001, alpha=1.0, cmap='viridis')
+
+        # Plot true values
         threshold = 0.5
         mask = true_values > threshold
         if np.any(mask):
-             ax.scatter(tri_centers[mask, 0], tri_centers[mask, 1], 
-                  color='sandybrown',
-                  alpha=0.15, s=10)
+            for j in np.where(mask)[0]:
+                triangle = tri[j]
+                triangle_pts = pts[triangle]
+                ax.fill(triangle_pts[:, 0], triangle_pts[:, 1], 
+                       color='goldenrod', alpha=0.5,
+                      edgecolor='w',
+                     linewidth=0.001)
         
-        ax.set_aspect("equal")
-        ax.set_ylim([-1.2, 1.2])
-        ax.set_xlim([-1.2, 1.2])
-        ax.set_title(f"Sample {idx}")
-        plt.colorbar(im_pred, ax=ax)
+        # Set limits to exactly match the frame
+        ax.set_ylim([-1, 1])
+        ax.set_xlim([-1, 1])
+        # Force the aspect ratio to be exactly square and fill the frame
+        ax.set_aspect('equal', adjustable='box', anchor='C')
     
     plt.tight_layout()
     
     if save:
-        full_path = fpath + fname
-        plt.savefig(full_path, bbox_inches='tight', dpi=300)
-        print(f"Plot saved to: {full_path}")
+        # Create full paths for both PNG and PDF
+        base_path = os.path.splitext(fpath + fname)[0]  # Remove any existing extension
+        png_path = base_path + '.png'
+        pdf_path = base_path + '.pdf'
+        
+        try:
+            # Save as PNG first
+            plt.savefig(png_path, bbox_inches='tight', dpi=300)
+            
+            # Convert PNG to PDF
+            image = Image.open(png_path)
+            # Convert to RGB if necessary (in case the image is RGBA)
+            if image.mode in ('RGBA', 'LA'):
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                background.paste(image, mask=image.split()[-1])
+                image = background
+            
+            image.save(pdf_path, 'PDF', resolution=300.0)
+            
+            print(f"Plots saved as:\nPNG: {png_path}\nPDF: {pdf_path}")
+            
+            # Optionally remove the PNG file if you don't want to keep it
+            os.remove(png_path)
+            
+        except Exception as e:
+            print(f"Error saving files: {str(e)}")
     
     plt.show()
 
 
 def plot_deviations_x_y(true_perms, pred_perms, mesh_obj, threshold=0.5, save=False, 
-                       fpath='', fname='x_y_deviation.pdf', figsize=(8, 8), limits=(-1, 1)):
+                       fpath='', fname='', figsize=(8, 8), limits=(-1, 1)):
  
     # Compute deviations for all samples
     x_deviations = []
@@ -226,16 +245,16 @@ def plot_deviations_x_y(true_perms, pred_perms, mesh_obj, threshold=0.5, save=Fa
     g.ax_joint.axvline(x=x_mean, color='r', linestyle='--', alpha=0.5)
     g.ax_joint.axhline(y=y_mean, color='r', linestyle='--', alpha=0.5)
     
-    # Add statistics text box
-    #stats_text = (f"μx = {x_mean:.3f}\n"
-    #             f"μy = {y_mean:.3f}\n"
-     #            f"σx = {np.std(x_deviations):.3f}\n"
-      #           f"σy = {np.std(y_deviations):.3f}")
-    #g.ax_joint.text(0.02, 0.98, stats_text,
-                  # transform=g.ax_joint.transAxes,
-                  # verticalalignment='top',
-                  # bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
+    stats_filename = fpath + fname + '_stats.txt'
+        
+    # Save statistics to text file
+    with open(stats_filename, 'w') as f:
+        f.write(f'μx = {x_mean:.3f}\n')
+        f.write(f'μy = {y_mean:.3f}\n')
+        f.write(f'σx = {np.std(x_deviations):.3f}\n')
+        f.write(f'σy = {np.std(y_deviations):.3f}\n')
+    print(f"Statistics saved to: {stats_filename}")
+
     if save:
         plt.tight_layout()
         full_path = fpath + fname
@@ -245,7 +264,7 @@ def plot_deviations_x_y(true_perms, pred_perms, mesh_obj, threshold=0.5, save=Fa
     return g
 
 def plot_deviations_perm(true_perms, pred_perms, mesh_obj, threshold=0.5, 
-                        save=False, fpath='', fname='perm_deviation.pdf', binwidth=10):
+                        save=False, fpath='', fname='', binwidth=10):
     
     # Compute element deviations for all samples
     perm_deviations = []
@@ -290,8 +309,7 @@ def plot_deviations_perm(true_perms, pred_perms, mesh_obj, threshold=0.5,
         plt.tight_layout()
         plt.savefig(fpath + fname)
         
-        # Save statistics to text file
-        stats_filename = fpath + 'perm_deviation_stats.txt'
+        stats_filename = fpath + fname + '_stats.txt'
         with open(stats_filename, 'w') as f:
             f.write(f'Mittlere Perm-Abweichung: {round(mean_dev)} [FE]\n')
             f.write(f'Standardabweichung: {round(std_dev, 1)} [FE]\n')
@@ -339,24 +357,176 @@ def merge_plots_to_pdf(x_y_plot, perm_plot, output_path, output_name='merged_ana
    os.remove(perm_pdf)
    
    print(f"Merged analysis plots saved as: {output_pdf}")
+    
+
+def normalize_angle(angle):
+    """Convert angle from [-180, 180] to [0, 360] range"""
+    return (angle + 360) % 360
+
+def compute_polar_metrics(mesh_obj, true_perm, pred_perm, threshold=0.5):
+    """
+    Computes polar coordinate metrics (radius and angle) for the predictions vs ground truth
+    
+    Args:
+        mesh_obj: Mesh object containing node and element information
+        true_perm: Ground truth permittivity values
+        pred_perm: Predicted permittivity values
+        threshold: Threshold value for binary segmentation
+    
+    Returns:
+        tuple: (r_true, r_pred, theta_true, theta_pred) arrays containing the radii and angles
+    """
+    
+    # Make sure we use only the matching timesteps
+    min_timesteps = min(true_perm.shape[0], pred_perm.shape[0])
+    true_perm = true_perm[:min_timesteps]
+    pred_perm = pred_perm[:min_timesteps]
+    
+    metrics_list = []
+    coordinates_list = []
+    
+    for t in range(min_timesteps):
+        metrics, coords = compute_evaluation_metrics(mesh_obj, true_perm[t], pred_perm[t], threshold)
+        if metrics is not None:
+            metrics_list.append(metrics)
+            coordinates_list.append(coords)
+    
+    r_true = []
+    r_pred = []
+    theta_true = []
+    theta_pred = []
+    
+    def compute_polar_metrics(mesh_obj, true_perm, pred_perm, threshold=0.5):
+        """
+        Computes polar coordinate metrics (radius and angle) for the predictions vs ground truth
+        """
+        # Bisheriger Code bleibt gleich bis zur Winkelberechnung
+        min_timesteps = min(true_perm.shape[0], pred_perm.shape[0])
+        true_perm = true_perm[:min_timesteps]
+        pred_perm = pred_perm[:min_timesteps]
+        
+        metrics_list = []
+        coordinates_list = []
+        
+        for t in range(min_timesteps):
+            metrics, coords = compute_evaluation_metrics(mesh_obj, true_perm[t], pred_perm[t], threshold)
+            if metrics is not None:
+                metrics_list.append(metrics)
+                coordinates_list.append(coords)
+        
+        r_true = []
+        r_pred = []
+        theta_true = []
+        theta_pred = []
+        
+        for coords in coordinates_list:
+            true_center, pred_center, true_coords, pred_coords = coords
+            
+            # Radien bleiben unverändert
+            r_t = np.sqrt(np.mean(true_coords[:,0]**2 + true_coords[:,1]**2))
+            r_p = np.sqrt(np.mean(pred_coords[:,0]**2 + pred_coords[:,1]**2))
+            
+            # Winkelberechnung ohne Normalisierung
+            theta_t = np.degrees(np.arctan2(np.mean(true_coords[:,1]), 
+                                          np.mean(true_coords[:,0])))
+            theta_p = np.degrees(np.arctan2(np.mean(pred_coords[:,1]), 
+                                          np.mean(pred_coords[:,0])))
+            
+            r_true.append(r_t)
+            r_pred.append(r_p)
+            theta_true.append(theta_t)
+            theta_pred.append(theta_p)
+        
+        # Arrays erstellen
+        theta_true = np.array(theta_true)
+        theta_pred = np.array(theta_pred)
+        
+        # Unwrapping durchführen
+        theta_true_unwrapped = np.unwrap(np.radians(theta_true))
+        theta_pred_unwrapped = np.unwrap(np.radians(theta_pred))
+        
+        # Zurück zu Grad konvertieren
+        theta_true_unwrapped = np.degrees(theta_true_unwrapped)
+        theta_pred_unwrapped = np.degrees(theta_pred_unwrapped)
+        
+        # Offset anpassen, damit die Werte nicht bei 360° beginnen
+        # Finden des minimalen Werts und Verschieben aller Werte
+        min_theta = min(np.min(theta_true_unwrapped), np.min(theta_pred_unwrapped))
+        theta_true_unwrapped -= min_theta
+        theta_pred_unwrapped -= min_theta
+        
+        return np.array(r_true), np.array(r_pred), theta_true_unwrapped, theta_pred_unwrapped
+
+def plot_polar_metrics(r_true, r_pred, theta_true, theta_pred, save=False, fpath='', fname=''):
+    """
+    Creates plots comparing the true and predicted radii and angles with customized styling
+    """
+    # Set white background
+    plt.rcParams['figure.facecolor'] = 'white'
+    plt.rcParams['axes.facecolor'] = 'white'
+    
+    # Create figure
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 4))
+    
+        # Time points starting at 4
+    t = np.arange(4, len(r_true) + 4)
+    max_t = 5000
+    mid_t = max_t // 2
+    quarter_t = mid_t // 2  # 1250
+    three_quarter_t = mid_t + quarter_t  # 3750
+    
+    # First plot (radius)
+    ax1.plot(t, r_true, color='orangered', linestyle='-', linewidth=1)
+    ax1.plot(t, r_pred, color='steelblue', linestyle='-', linewidth=1)
+    
+    # Customize x-axis ticks and grid
+    ax1.set_xticks([0, quarter_t, mid_t, three_quarter_t, max_t])
+    ax1.set_xticklabels(['0', '1250', '2500', '3750', '5000'], fontsize=15)
+    ax1.set_xlim(0, max_t)
+    
+    # Customize y-axis ticks and grid
+    ax1.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
+    ax1.set_yticklabels(['0', '0.25', '0.5', '0.75', '1.0'], fontsize=15)
+    
+    ax1.set_xlabel('n', fontsize=15)
+    ax1.set_ylabel('Radius', fontsize=15)
+    #ax1.legend(frameon=True, facecolor='white', edgecolor='none')
+    #ax1.grid(True, color='lightgray', linewidth=0.5)
+    ax1.set_axisbelow(True)
+    
+    # Second plot (angle)
+    ax2.plot(t, theta_true, color='orangered', linestyle='-', linewidth=1)
+    ax2.plot(t, theta_pred, color='steelblue', linestyle='-', linewidth=1)
+    
+    # Customize x-axis ticks and grid
+    ax1.set_xticks([0, quarter_t, mid_t, three_quarter_t, max_t])
+    ax1.set_xticklabels(['0', '1250', '2500', '3750', '5000'], fontsize=15)
+    ax1.set_xlim(0, max_t)
+    
+    ax2.set_xlabel('t', fontsize=15)
+    ax2.set_ylabel('Winkel θ (°)', fontsize=15)
+    ax2.set_ylim(0, 360)
+    ax2.legend(frameon=True, facecolor='white', edgecolor='none')
+    ax2.grid(True, color='lightgray', linewidth=0.5, alpha=0.5)
+    ax2.set_axisbelow(True)
+    
+    plt.tight_layout()
+    
+    if save:
+        # Save as PNG first
+        png_path = fpath + fname + '.png'
+        pdf_path = fpath + fname + '.pdf'
+        
+        plt.savefig(png_path, bbox_inches='tight', dpi=300)
+        
+        # Convert to PDF
+        from PIL import Image
+        image = Image.open(png_path)
+        image.save(pdf_path, 'PDF', resolution=300.0)
+        print(f"Plots saved as:\nPNG: {png_path}\nPDF: {pdf_path}")
 
 def run_deviation_analysis(gamma_true, gamma_pred_test, mesh_obj, fpath='Abbildungen/', base_fname='sim_few_unbalanced_interpol_reconstruct'):
-    """
-    Runs complete deviation analysis including plots and PDF merging.
-    
-    Parameters
-    ----------
-    gamma_true : array
-        True permittivity values
-    gamma_pred_test : array
-        Predicted permittivity values
-    mesh_obj : object
-        Mesh object containing node and element information
-    fpath : str
-        Base path for saving files (default: 'Abbildungen/')
-    base_fname : str
-        Base filename for all outputs (default: 'sim_few_unbalanced_interpol_reconstruct')
-    """
+
     # Generate specific filenames
     position_fname = f'position_{base_fname}_deviations.pdf'
     perm_fname = f'perm_{base_fname}_deviations.pdf'
