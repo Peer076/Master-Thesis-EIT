@@ -320,19 +320,20 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     if traj_type == "Kreis":
         x_uniform = radius * np.cos(t)
         y_uniform = radius * np.sin(t)
-       
+        z = np.zeros(num_points)
         
     elif traj_type == "Ellipse":
         a = radius  
         b = 0.7 * radius 
         x = a * np.cos(t)
         y = b * np.sin(t)
+        z = np.zeros(num_points)
         
     elif traj_type == "Acht":
         x = radius * np.sin(t)
         y = radius * np.sin(2*t) / 2
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
-        
+        z = np.zeros(num_points)
     elif traj_type == "Spirale":
         rotations = base_rotations + (num_points // 1000)
         t = np.linspace(0, 2*np.pi*rotations, 1000)
@@ -342,8 +343,8 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         y = r * np.sin(t)
         
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
-        
-    elif traj_type == "Folium":
+        z = np.zeros(num_points)
+    elif traj_type == "Folium_vorwärts":
         circle_circumference = 2 * np.pi * radius
         
         t = np.linspace(-3, 3, 1000)  
@@ -360,7 +361,7 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         scale = np.sqrt(circle_circumference / current_length)
         x *= scale
         y *= scale
-        
+        z = np.zeros(num_points)
         max_radius = np.max(np.sqrt(x**2 + y**2))
         if max_radius > radius:
             scaling_factor = (radius / max_radius) * 0.95  
@@ -372,13 +373,56 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         y = y[mask]
         
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Folium_rückwärts":
+        circle_circumference = 2 * np.pi * radius
         
-    else:
-        raise ValueError("Invalid trajectory type. Choose 'Kreis', 'Ellipse', 'Acht', 'Spirale', or 'Schlange'")
+        t = np.linspace(-3, 3, 1000)  
+        
+        a = radius * 0.5  
+        
+        x = a * (t**3 - 3*t) / (1 + t**2)
+        y = a * (t**2 - 1) / (1 + t**2)
+        z = np.zeros(num_points)
+        dx = np.diff(x)
+        dy = np.diff(y)
+        current_length = np.sum(np.sqrt(dx**2 + dy**2))
+        
+        scale = np.sqrt(circle_circumference / current_length)
+        x *= scale
+        y *= scale
+
+        max_radius = np.max(np.sqrt(x**2 + y**2))
+        if max_radius > radius:
+            scaling_factor = (radius / max_radius) * 0.95  
+            x *= scaling_factor
+            y *= scaling_factor
+        
+        mask = ~(np.isnan(x) | np.isnan(y))
+        x = x[mask]
+        y = y[mask]
+        x = x[::-1]
+        y = y[::-1]
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Helix":
+        #x	=	rcost	
+        #y	=	rsint	
+        #z	=	ct
+        from src.classes import Boundary, TankProperties32x2, BallAnomaly
+        tank = TankProperties32x2()
+        
+        # n_turns bestimmt die Anzahl der Windungen
+        n_turns = 10  # zum Beispiel für 3 Windungen
+
+        t = np.linspace(0, 2*np.pi*n_turns, num_points)  # Multipliziere mit n_turns
+        x_uniform = radius * np.cos(t)
+        y_uniform = radius * np.sin(t)
+        z = np.linspace(tank.T_bz[0] + 30, tank.T_bz[1] - 30, num_points)
+        
     
-    
-    
-    return np.column_stack((x_uniform, y_uniform))
+    return np.column_stack((x_uniform, y_uniform, z))
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
@@ -706,3 +750,79 @@ def plot_voxel_c(voxelarray, elev=20, azim=10):
     ax.view_init(azim=azim, elev=elev)
     plt.tight_layout()
     plt.show()
+
+
+def voxel_ball(ball, boundary, empty_gnd=0, mask=False):
+    
+    #scale_factor = 32 / 194  # 32 voxels / 194mm (tank diameter)
+    #ball_diameter_voxels = round(ball.d * scale_factor)
+    #print(f"ball_diameter_voxels: {ball_diameter_voxels}")
+    
+    y, x, z = np.indices((boundary.x_length, boundary.y_length, boundary.z_length))
+    voxel = (
+        np.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2 + (z - ball.z) ** 2) < ball.d / 2
+    )
+    if mask:
+        return voxel
+    else:
+        return np.where(voxel, ball.perm, empty_gnd)
+
+def create_cylinder_mesh(tank, n_points=100):
+    
+    theta = np.linspace(0, 2*np.pi, n_points)
+    z = np.linspace(tank.T_bz[0], tank.T_bz[1], n_points)
+    theta, z = np.meshgrid(theta, z)
+    x = tank.T_r * np.cos(theta)
+    y = tank.T_r * np.sin(theta)
+    return x, y, z
+
+def plot_tank_and_ball(ball, tank, boundary):
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+   
+    scale_factor = 32 / tank.T_d 
+    
+    cylinder_radius = tank.T_r * scale_factor
+    cylinder_height = tank.T_bz[1] * scale_factor
+    x_cyl, y_cyl, z_cyl = create_cylinder_mesh(cylinder_radius, cylinder_height)
+    
+    x_cyl += 16  
+    y_cyl += 16  
+    
+    ax.plot_surface(x_cyl, y_cyl, z_cyl, alpha=0.1, color='gray')
+    
+    ball_voxels = voxel_ball(ball, boundary)
+    
+    ax.voxels(ball_voxels.transpose(1, 0, 2), facecolors='cornflowerblue', alpha=0.8)
+    
+    ax.plot([0, boundary.x_length], [0, 0], [0, 0], 'k-', linewidth=1)
+    #ax.text(boundary.x_length+1, 0, 0, 'x')
+    
+    ax.plot([0, 0], [0, boundary.y_length], [0, 0], 'k-', linewidth=1)
+    #ax.text(0, boundary.y_length+1, 0, 'y')
+    
+    ax.plot([0, 0], [0, 0], [0, boundary.z_length], 'k-', linewidth=1)
+    #ax.text(0, 0, boundary.z_length+1, 'z')
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+    
+    ax.set_xlim([boundary.x_0, boundary.x_length])
+    ax.set_ylim([boundary.y_0, boundary.y_length])
+    ax.set_zlim([boundary.z_0, boundary.z_length])
+    
+    # Set grid with minor lines
+    ax.grid(True)
+    
+    # Set major ticks to show 0,8,16,24,32
+    ax.set_xticks([0, 8, 16, 24, 32])
+    ax.set_yticks([0, 8, 16, 24, 32])
+    ax.set_zticks([0, 8, 16, 24, 32])
+    
+    # Set view angle
+    ax.view_init(elev=10, azim=45)
+    
+    plt.tight_layout()
+    plt.show()
+

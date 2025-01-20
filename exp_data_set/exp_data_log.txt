@@ -40,3 +40,17 @@ r_anomaly: 15
 r_path: 0.4
 material: Acryl Glas
 ----------------------------------------
+folder: exp_data_set/exp_data35
+Trajectory: Acht
+Nsteps: 3500
+r_anomaly: 15
+r_path: 0.7
+material: Acryl Glas
+----------------------------------------
+folder: exp_data_set/exp_data36
+Trajectory: Acht
+Nsteps: 1000
+r_anomaly: 15
+r_path: 0.2
+material: Acryl Glas
+----------------------------------------
