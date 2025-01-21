@@ -19,7 +19,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import SGD, Adam
 
 filters = [1, 2, 4, 8]
-kernels = [(3,3,3) for _ in range(4)]
+kernels = [(5,5,5) for _ in range(4)]
 strides = [(1, 1, 1), (2, 2, 2), (2, 2, 2), (2, 2, 2)]
 paddings = ["same", "same", "same", "same"]
 
