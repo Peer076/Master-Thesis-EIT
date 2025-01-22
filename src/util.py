@@ -315,77 +315,164 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     numpy.ndarray: Array of points with consistent spacing
     """
     
-    # Generate initial dense set of points
-    t = np.linspace(0, 2*np.pi, 1000)
+    t = np.linspace(0, 2*np.pi, num_points)
     
     if traj_type == "Kreis":
-        x = radius * np.cos(t)
-        y = radius * np.sin(t)
+        x_uniform = radius * np.cos(t)
+        y_uniform = radius * np.sin(t)
         
     elif traj_type == "Ellipse":
-        a = radius  # Major axis
-        b = 0.7 * radius  # Minor axis
+        a = radius  
+        b = 0.7 * radius 
         x = a * np.cos(t)
         y = b * np.sin(t)
         
     elif traj_type == "Acht":
         x = radius * np.sin(t)
         y = radius * np.sin(2*t) / 2
-        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+    
     elif traj_type == "Spirale":
-        # For spiral, we need more points for multiple rotations
         rotations = base_rotations + (num_points // 1000)
         t = np.linspace(0, 2*np.pi*rotations, 1000)
-        
         
         r = radius * (1 - t/(2*np.pi*rotations))
         x = r * np.cos(t)
         y = r * np.sin(t)
         
-    elif traj_type == "Folium":
-        # Calculate reference circle circumference
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Folium_vorwärts":
         circle_circumference = 2 * np.pi * radius
         
-        # Generate parameter t for Folium curve
-        # Using more points for smooth curve
         t = np.linspace(-3, 3, 1000)  
         
-        # Scale factor to control the size of the Folium
-        a = radius * 0.5  # Scale factor, adjust as needed
+        a = radius * 0.5  
         
-        # Parametric equations for Folium curve
         x = a * (t**3 - 3*t) / (1 + t**2)
         y = a * (t**2 - 1) / (1 + t**2)
         
-        # Calculate current curve length
         dx = np.diff(x)
         dy = np.diff(y)
         current_length = np.sum(np.sqrt(dx**2 + dy**2))
         
-        # Scale the curve to match target length while maintaining shape
         scale = np.sqrt(circle_circumference / current_length)
         x *= scale
         y *= scale
         
-        # Verify that curve stays within unit circle and rescale if necessary
         max_radius = np.max(np.sqrt(x**2 + y**2))
         if max_radius > radius:
-            scaling_factor = (radius / max_radius) * 0.95  # 0.95 adds a small safety margin
+            scaling_factor = (radius / max_radius) * 0.95  
             x *= scaling_factor
             y *= scaling_factor
         
-        # Remove any NaN values that might occur
         mask = ~(np.isnan(x) | np.isnan(y))
         x = x[mask]
         y = y[mask]
         
-    else:
-        raise ValueError("Invalid trajectory type. Choose 'Kreis', 'Ellipse', 'Acht', 'Spirale', or 'Schlange'")
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Folium_rückwärts":
+        circle_circumference = 2 * np.pi * radius
+        
+        t = np.linspace(-3, 3, 1000)  
+        
+        a = radius * 0.5  
+        
+        x = a * (t**3 - 3*t) / (1 + t**2)
+        y = a * (t**2 - 1) / (1 + t**2)
     
-    # Interpolate to get equidistant points with adjusted number of points
-    x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+        dx = np.diff(x)
+        dy = np.diff(y)
+        current_length = np.sum(np.sqrt(dx**2 + dy**2))
+        
+        scale = np.sqrt(circle_circumference / current_length)
+        x *= scale
+        y *= scale
+
+        max_radius = np.max(np.sqrt(x**2 + y**2))
+        if max_radius > radius:
+            scaling_factor = (radius / max_radius) * 0.95  
+            x *= scaling_factor
+            y *= scaling_factor
+        
+        mask = ~(np.isnan(x) | np.isnan(y))
+        x = x[mask]
+        y = y[mask]
+        x = x[::-1]
+        y = y[::-1]
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
     
     return np.column_stack((x_uniform, y_uniform))
+
+
+def create_trajectory_3D(traj_type, radius, num_points, base_rotations=1):
+
+    if traj_type == "Helix":
+        #x	=	rcost	
+        #y	=	rsint	
+        #z	=	ct
+        from src.classes import Boundary, TankProperties32x2, BallAnomaly
+        tank = TankProperties32x2()
+        
+        # n_turns bestimmt die Anzahl der Windungen
+        n_turns = 5  # zum Beispiel für 3 Windungen
+
+        t = np.linspace(0, 2*np.pi*n_turns, num_points)  # Multipliziere mit n_turns
+        x = radius * np.cos(t)
+        y = radius * np.sin(t)
+        z = np.linspace(10, 60, num_points)
+
+    elif traj_type == "Lorenz":
+        
+        sigma = 10
+        rho = 28
+        beta = 8/3
+        
+
+        dt = 0.01
+        t = np.linspace(0, dt*num_points, num_points)
+        
+        x = np.zeros(num_points)
+        y = np.zeros(num_points)
+        z = np.zeros(num_points)
+        
+        x[0], y[0], z[0] = 1, 1, 1
+        
+        for i in range(num_points-1):
+            dx = sigma * (y[i] - x[i])
+            dy = x[i] * (rho - z[i]) - y[i]
+            dz = x[i] * y[i] - beta * z[i]
+            
+            x[i+1] = x[i] + dx * dt
+            y[i+1] = y[i] + dy * dt
+            z[i+1] = z[i] + dz * dt
+        
+        x = (x - x.min()) / (x.max() - x.min()) * radius * 2 - radius
+        y = (y - y.min()) / (y.max() - y.min()) * radius * 2 - radius
+        z = (z - z.min()) / (z.max() - z.min()) * 50 + 50  # Scale to range [50, 100]
+
+    elif traj_type == "Spherical":
+        # Parameter für die sphärische Spirale
+        radius_sphere = radius  # Radius der Kugel
+        n_turns = 30  # Anzahl der Windungen von oben nach unten
+        
+        # Parameter equations für eine sphärische Spirale
+        theta = np.linspace(0, 2*np.pi*n_turns, num_points)  # Azimuthalwinkel
+        phi = np.linspace(0, np.pi, num_points)  # Polarwinkel
+        
+        # Berechnung der kartesischen Koordinaten
+        x = radius_sphere * np.sin(phi) * np.cos(theta)
+        y = radius_sphere * np.sin(phi) * np.sin(theta)
+        z = radius_sphere * np.cos(phi)
+        
+        # Skalierung und Verschiebung des z-Wertes auf den gewünschten Bereich [50, 100]
+        z = (z - z.min()) / (z.max() - z.min()) * 50 + 50
+        
+    
+    return np.column_stack((x, y, z))
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
