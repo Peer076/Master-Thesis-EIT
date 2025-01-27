@@ -342,6 +342,16 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
 
+    elif traj_type == "Lissajous":
+        a = 3  # Frequenz x
+        b = 4  # Frequenz y
+        t = np.linspace(0, 2*np.pi, 1000)
+        
+        x = radius * np.sin(a * t)
+        y = radius * np.sin(b * t)
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
     elif traj_type == "Folium_vorwärts":
         circle_circumference = 2 * np.pi * radius
         
@@ -457,7 +467,7 @@ def create_trajectory_3D(traj_type, radius, num_points, base_rotations=1):
     elif traj_type == "Spherical":
         # Parameter für die sphärische Spirale
         radius_sphere = radius  # Radius der Kugel
-        n_turns = 30  # Anzahl der Windungen von oben nach unten
+        n_turns = 60  # Anzahl der Windungen von oben nach unten
         
         # Parameter equations für eine sphärische Spirale
         theta = np.linspace(0, 2*np.pi*n_turns, num_points)  # Azimuthalwinkel
@@ -877,3 +887,122 @@ def plot_tank_and_ball(ball, tank, boundary):
     plt.tight_layout()
     plt.show()
 
+def plot_ball(
+    ball: BallAnomaly,
+    boundary: Boundary,
+    res: int = 50,
+    elev: int = 25,
+    azim: int = 10,
+):
+    u = np.linspace(0, 2 * np.pi, res)
+    v = np.linspace(0, np.pi, res)
+
+    x_c = ball.x + ball.d / 2 * np.outer(np.cos(u), np.sin(v))
+    y_c = ball.y + ball.d / 2 * np.outer(np.sin(u), np.sin(v))
+    z_c = ball.z + ball.d / 2 * np.outer(np.ones(np.size(u)), np.cos(v))
+
+    fig = plt.figure(figsize=(4, 4))
+    ax = fig.add_subplot(111, projection="3d")
+    # ball
+    ax.plot_surface(x_c, y_c, z_c, color="C0", alpha=1)
+
+    ax.set_xlim([boundary.x_0, boundary.x_length])
+    ax.set_ylim([boundary.y_0, boundary.y_length])
+    ax.set_zlim([boundary.z_0, boundary.z_length])
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+
+    ax.view_init(elev=elev, azim=azim)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_voxel_c(voxelarray, elev=20, azim=10):
+    """
+    fc : facecolor of the voxels
+    """
+    # C0 -> acrylic
+    # C1 -> metal
+    colors = ["C0", "C1"]  # Define colors for 1 and 2 values respectively
+
+    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
+    # ax.voxels(voxelarray.transpose(1, 0, 2))
+    ax.voxels(
+        voxelarray.transpose(1, 0, 2), facecolors=colors[int(np.max(voxelarray) - 1)]
+    )
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.view_init(azim=azim, elev=elev)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_voxel(voxelarray, fc=0, elev=20, azim=10):
+    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
+    ax.voxels(voxelarray.transpose(1, 0, 2), facecolors=f"C{fc}")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.view_init(azim=azim, elev=elev)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_reconstruction_set(
+    true, m_true, pred, m_pred, cols=5, legends=False, save_fig=None, forced_sel=None
+):
+    if true.shape != pred.shape:
+        print("true.shape != pred.shape")
+        return
+
+    rows = 2
+    colors = ["C0", "C1"]  # Define colors for 1 and 2 values respectively
+    if forced_sel is None:
+        sel = random.sample(range(true.shape[0]), cols)
+    else:
+        sel = forced_sel
+    print("Selcted the samples =", sel)
+    fig, axes = plt.subplots(
+        rows, cols, figsize=(14, 5), subplot_kw={"projection": "3d"}
+    )
+    for i in range(rows):
+        for j in range(cols):
+            ax = axes[i, j]
+            voxelarray = (
+                true[sel[j]] * (1 + m_true[sel[j]])
+                if i == 0
+                else pred[sel[j]] * (1 + m_pred[sel[j]])
+            )
+            ax.voxels(voxelarray, facecolors=colors[int(np.max(voxelarray) - 1)])
+            if legends:
+                ax.set_xlabel("x")
+                ax.set_ylabel("y")
+                ax.set_zlabel("z")
+            else:
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                ax.set_zticklabels([])
+            ax.view_init(azim=45, elev=30)
+    if not legends:
+        print("Row 0 -> true γ distribution")
+        print("Row 1 -> pred γ distribution")
+    # plt.tight_layout()
+    if save_fig is not None:
+        plt.savefig(save_fig, bbox_inches="tight", pad_inches=0)
+    plt.show()
+
+
+def read_json_file(file_path):
+    try:
+        with open(file_path, "r") as json_file:
+            data = json.load(json_file)
+            return data
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON in file {file_path}: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
