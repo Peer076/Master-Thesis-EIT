@@ -9,3 +9,5 @@ Mapper_Mesh_Plots_Exp1/
 *.gif
 weights/
 exp_data_set/
+exp_data_log.txt
+exp_data_set_3D/

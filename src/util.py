@@ -408,7 +408,7 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     return np.column_stack((x_uniform, y_uniform))
 
 
-def create_trajectory_3D(traj_type, radius, num_points, base_rotations=1):
+def create_trajectory_3D(traj_type, radius, num_points, turns, base_rotations=1):
 
     if traj_type == "Helix":
         #x	=	rcost	
@@ -418,7 +418,7 @@ def create_trajectory_3D(traj_type, radius, num_points, base_rotations=1):
         tank = TankProperties32x2()
         
         # n_turns bestimmt die Anzahl der Windungen
-        n_turns = 5  # zum Beispiel für 3 Windungen
+        n_turns = turns  # zum Beispiel für 3 Windungen
 
         t = np.linspace(0, 2*np.pi*n_turns, num_points)  # Multipliziere mit n_turns
         x = radius * np.cos(t)
