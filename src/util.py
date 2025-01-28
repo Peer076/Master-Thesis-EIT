@@ -212,7 +212,6 @@ def plot_mesh_permarray(mesh_obj, perm_array, ax=None, title="Mesh", sample_inde
 
     im = ax.tripcolor(x, y, tri, perm_array, shading="flat", edgecolor="k", alpha=0.8)
 
-    # Annotate each element with its index
     for j, el in enumerate(el_pos):
         ax.text(pts[el, 0], pts[el, 1], str(j + 1), color="red")
 
@@ -285,146 +284,195 @@ def plot_3D_traj(sphere_r, tank_r, tank_h):
     
     return positions
 
-
-    
-import numpy as np
-import matplotlib.pyplot as plt
-
-from matplotlib.patches import Circle
-from scipy.integrate import quad
-from scipy.optimize import root_scalar
-
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
-
-def calculate_arc_length(traj, r_path):
+def interpolate_equidistant_points(x, y, num_points):
     """
-    Berechnet die Bogenlänge der gegebenen Trajektorie (Kreis oder Acht).
-
-    Parameters:
-    traj (str): Art der Trajektorie ("Kreis" oder "Acht")
-    r_path (float): Radius/Skalierungsfaktor der Trajektorie
-
-    Returns:
-    float: Bogenlänge
+    Interpolate points along the curve to create equidistant spacing
     """
-    if traj == "Kreis":
-        return 2 * np.pi * r_path
-    elif traj == "Acht":
-        def integrand(t):
-            dx_dt = r_path * np.cos(t)
-            dy_dt = -r_path * np.cos(2 * t)
-            return np.sqrt(dx_dt**2 + dy_dt**2)
-
-        length, _ = quad(integrand, 0, 2 * np.pi)
-        return length
-    else:
-        raise ValueError("Unbekannte Trajektorie")
-
-
-def createTrajectory(traj, r_path, r_path_variations, bound, num_points, rotations=3):
- 
-
-    if r_path_variations:
-        lower_bound = r_path * (1 - bound)
-        upper_bound = r_path * (1 + bound)
-        r_path = np.random.uniform(lower_bound, upper_bound)
-
-    double_pi = 2 * np.pi
-
-    if traj == "Kreis":
-        
-        t = np.linspace(0, 2 * np.pi, num_points)
-        
-
-        t = np.linspace(0, double_pi, 1000)  # Erzeuge eine feine Trajektorie
-
-        x = r_path * np.cos(t)
-        y = r_path * np.sin(t)
-
-    elif traj == "Acht":
-        # Berechne Skalierungsfaktor, um die Achtbahn an die Kreisbahn anzupassen
-
-        circle_length = calculate_arc_length("Kreis", r_path)
-        eight_length = calculate_arc_length("Acht", r_path)
-        scaling_factor = circle_length / eight_length
-
-        t = np.linspace(0, 2 * np.pi, num_points) 
-
-        t = np.linspace(0, double_pi, 1000)
-
-        x = r_path * np.sin(t + np.pi / 2)
-        y = -scaling_factor * r_path * np.sin(2 * (t + np.pi / 2)) / 2
-
-    elif traj == "Spirale":
-
-        # Passe die Anzahl der Umdrehungen an, um die gleiche Streckenlänge wie beim Kreis zu erreichen
-        def spirale_arc_length(rot):
-            max_theta = double_pi * rot
-            scale_factor = r_path / max_theta
-
-            def integrand(t):
-                r = scale_factor * t
-                dr_dt = scale_factor
-                return np.sqrt((r * -np.sin(t))**2 + (r * np.cos(t))**2 + dr_dt**2)
-
-            length, _ = quad(integrand, 0, max_theta)
-            return length
-
-        # Finde die richtige Anzahl an Umdrehungen
-
-        target_length = calculate_arc_length("Kreis", r_path)
-        rotations = np.linspace(1, 10, 1000)
-        lengths = [spirale_arc_length(rot) for rot in rotations]
-        optimal_rot = rotations[np.argmin(np.abs(np.array(lengths) - target_length))]
-
-        max_theta = double_pi * optimal_rot
-        t = np.linspace(0, 2 * np.pi, num_points) 
-        scale_factor = r_path / max_theta
-        r = scale_factor * t[::-1]  
-        x = r * np.cos(t)
-        y = r * np.sin(t) 
-          
-        
-        t = np.linspace(0, max_theta, 1000)
-        scale_factor = r_path / max_theta
-        r = scale_factor * t[::-1]  # Radius beginnt bei r_path und verringert sich
-        x = r * np.cos(t)
-        y = r * np.sin(t)
-
-        # Starte bei (r_path, 0) und passe die Orientierung an
-        x = r * np.cos(t)
-        y = r * np.sin(t)
-        x, y = x, y  # Verschiebe den Startpunkt auf (r_path, 0)
-
-    else:
-        raise ValueError(f"Unbekannte Trajektorie: {traj}")
-
-    # Bogenlänge berechnen
-
     dx = np.diff(x)
     dy = np.diff(y)
     segment_lengths = np.sqrt(dx**2 + dy**2)
     cumulative_lengths = np.concatenate([[0], np.cumsum(segment_lengths)])
-
-    # Interpolation auf gleichmäßige Abstände
-
+    
     target_lengths = np.linspace(0, cumulative_lengths[-1], num_points)
+    
     interp_x = interp1d(cumulative_lengths, x, kind='linear')
     interp_y = interp1d(cumulative_lengths, y, kind='linear')
-    x_uniform = interp_x(target_lengths)
-    y_uniform = interp_y(target_lengths)
+    
+    return interp_x(target_lengths), interp_y(target_lengths)
 
-  
+def create_trajectory(traj_type, radius, num_points, base_rotations=1):
+    """
+    Create a trajectory with constant point spacing based on reference circle
+    
+    Parameters:
+    traj_type (str): Type of trajectory ('Kreis', 'Ellipse', 'Acht', 'Spirale', 'Schlange')
+    radius (float): Base radius/size of the trajectory
+    base_points (int): Number of points for reference circle
+    reference_radius (float): Radius of reference circle (default 0.25)
+    base_rotations (int): Number of rotations for spiral (default 2)
+    
+    Returns:
+    numpy.ndarray: Array of points with consistent spacing
+    """
+    
+    t = np.linspace(0, 2*np.pi, num_points)
+    
+    if traj_type == "Kreis":
+        x_uniform = radius * np.cos(t)
+        y_uniform = radius * np.sin(t)
+        
+    elif traj_type == "Ellipse":
+        a = radius  
+        b = 0.7 * radius 
+        x = a * np.cos(t)
+        y = b * np.sin(t)
+        
+    elif traj_type == "Acht":
+        x = radius * np.sin(t)
+        y = radius * np.sin(2*t) / 2
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+    
+    elif traj_type == "Spirale":
+        rotations = base_rotations + (num_points // 1000)
+        t = np.linspace(0, 2*np.pi*rotations, 1000)
+        
+        r = radius * (1 - t/(2*np.pi*rotations))
+        x = r * np.cos(t)
+        y = r * np.sin(t)
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
 
+    elif traj_type == "Folium_vorwärts":
+        circle_circumference = 2 * np.pi * radius
+        
+        t = np.linspace(-3, 3, 1000)  
+        
+        a = radius * 0.5  
+        
+        x = a * (t**3 - 3*t) / (1 + t**2)
+        y = a * (t**2 - 1) / (1 + t**2)
+        
+        dx = np.diff(x)
+        dy = np.diff(y)
+        current_length = np.sum(np.sqrt(dx**2 + dy**2))
+        
+        scale = np.sqrt(circle_circumference / current_length)
+        x *= scale
+        y *= scale
+        
+        max_radius = np.max(np.sqrt(x**2 + y**2))
+        if max_radius > radius:
+            scaling_factor = (radius / max_radius) * 0.95  
+            x *= scaling_factor
+            y *= scaling_factor
+        
+        mask = ~(np.isnan(x) | np.isnan(y))
+        x = x[mask]
+        y = y[mask]
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Folium_rückwärts":
+        circle_circumference = 2 * np.pi * radius
+        
+        t = np.linspace(-3, 3, 1000)  
+        
+        a = radius * 0.5  
+        
+        x = a * (t**3 - 3*t) / (1 + t**2)
+        y = a * (t**2 - 1) / (1 + t**2)
+    
+        dx = np.diff(x)
+        dy = np.diff(y)
+        current_length = np.sum(np.sqrt(dx**2 + dy**2))
+        
+        scale = np.sqrt(circle_circumference / current_length)
+        x *= scale
+        y *= scale
+
+        max_radius = np.max(np.sqrt(x**2 + y**2))
+        if max_radius > radius:
+            scaling_factor = (radius / max_radius) * 0.95  
+            x *= scaling_factor
+            y *= scaling_factor
+        
+        mask = ~(np.isnan(x) | np.isnan(y))
+        x = x[mask]
+        y = y[mask]
+        x = x[::-1]
+        y = y[::-1]
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    
     return np.column_stack((x_uniform, y_uniform))
 
 
+def create_trajectory_3D(traj_type, radius, num_points, turns, base_rotations=1):
 
+    if traj_type == "Helix":
+        #x	=	rcost	
+        #y	=	rsint	
+        #z	=	ct
+        from src.classes import Boundary, TankProperties32x2, BallAnomaly
+        tank = TankProperties32x2()
+        
+        # n_turns bestimmt die Anzahl der Windungen
+        n_turns = turns  # zum Beispiel für 3 Windungen
 
+        t = np.linspace(0, 2*np.pi*n_turns, num_points)  # Multipliziere mit n_turns
+        x = radius * np.cos(t)
+        y = radius * np.sin(t)
+        z = np.linspace(10, 60, num_points)
 
-    return np.column_stack((x_uniform, y_uniform))
+    elif traj_type == "Lorenz":
+        
+        sigma = 10
+        rho = 28
+        beta = 8/3
+        
 
+        dt = 0.01
+        t = np.linspace(0, dt*num_points, num_points)
+        
+        x = np.zeros(num_points)
+        y = np.zeros(num_points)
+        z = np.zeros(num_points)
+        
+        x[0], y[0], z[0] = 1, 1, 1
+        
+        for i in range(num_points-1):
+            dx = sigma * (y[i] - x[i])
+            dy = x[i] * (rho - z[i]) - y[i]
+            dz = x[i] * y[i] - beta * z[i]
+            
+            x[i+1] = x[i] + dx * dt
+            y[i+1] = y[i] + dy * dt
+            z[i+1] = z[i] + dz * dt
+        
+        x = (x - x.min()) / (x.max() - x.min()) * radius * 2 - radius
+        y = (y - y.min()) / (y.max() - y.min()) * radius * 2 - radius
+        z = (z - z.min()) / (z.max() - z.min()) * 50 + 50  # Scale to range [50, 100]
+
+    elif traj_type == "Spherical":
+        # Parameter für die sphärische Spirale
+        radius_sphere = radius  # Radius der Kugel
+        n_turns = 30  # Anzahl der Windungen von oben nach unten
+        
+        # Parameter equations für eine sphärische Spirale
+        theta = np.linspace(0, 2*np.pi*n_turns, num_points)  # Azimuthalwinkel
+        phi = np.linspace(0, np.pi, num_points)  # Polarwinkel
+        
+        # Berechnung der kartesischen Koordinaten
+        x = radius_sphere * np.sin(phi) * np.cos(theta)
+        y = radius_sphere * np.sin(phi) * np.sin(theta)
+        z = radius_sphere * np.cos(phi)
+        
+        # Skalierung und Verschiebung des z-Wertes auf den gewünschten Bereich [50, 100]
+        z = (z - z.min()) / (z.max() - z.min()) * 50 + 50
+        
+    
+    return np.column_stack((x, y, z))
 ###
 def create2DAnimation(traj,mesh_new_list, protocol_obj,mesh_obj,output_gif="animation_with_movement.gif"):
     pts = mesh_obj.node                         # Knoten extrahieren
@@ -520,18 +568,22 @@ def load_exp_data(data_set):
         voltage_list = []
         temp_list = []
         timestamp_list = []
+        position_list = []
      
         for file in file_list:
             tmp = np.load(file, allow_pickle=True)  
             voltage_list.append(tmp["v"])
             temp_list.append(tmp["temperature"])
             timestamp_list.append(tmp["timestamp"])
+            position_list.append(tmp["position"])
+            
 
         voltage_array = np.array(voltage_list)
         temp_array = np.array(temp_list)
         timestamp_array = np.array(timestamp_list)
+        position_array = np.array(position_list)
         
-    return voltage_array, temp_array, timestamp_array
+    return voltage_array, temp_array, timestamp_array, position_array
 ###
 #Function to create mesh plots and save them for comparison
 def mesh_plot_comparisons(
@@ -652,3 +704,143 @@ def select_random_instances_mapper(x_test, y_test, predicted_permittivities, ind
     selected_indices = indices[random_indices]  # Hole die tatsächlichen Indizes
     return selected_indices, selected_true_perms, selected_predicted_perms
 
+import numpy as np
+import json
+import random
+import matplotlib.pyplot as plt
+from .classes import (
+    BallAnomaly,
+    Boundary,
+)
+
+
+def plot_ball(
+    ball: BallAnomaly,
+    boundary: Boundary,
+    res: int = 50,
+    elev: int = 25,
+    azim: int = 10,
+):
+    u = np.linspace(0, 2 * np.pi, res)
+    v = np.linspace(0, np.pi, res)
+
+    x_c = ball.x + ball.d / 2 * np.outer(np.cos(u), np.sin(v))
+    y_c = ball.y + ball.d / 2 * np.outer(np.sin(u), np.sin(v))
+    z_c = ball.z + ball.d / 2 * np.outer(np.ones(np.size(u)), np.cos(v))
+
+    fig = plt.figure(figsize=(4, 4))
+    ax = fig.add_subplot(111, projection="3d")
+    # ball
+    ax.plot_surface(x_c, y_c, z_c, color="C0", alpha=1)
+
+    ax.set_xlim([boundary.x_0, boundary.x_length])
+    ax.set_ylim([boundary.y_0, boundary.y_length])
+    ax.set_zlim([boundary.z_0, boundary.z_length])
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+
+    ax.view_init(elev=elev, azim=azim)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_voxel_c(voxelarray, elev=20, azim=10):
+    """
+    fc : facecolor of the voxels
+    """
+    # C0 -> acrylic
+    # C1 -> metal
+    colors = ["C0", "C1"]  # Define colors for 1 and 2 values respectively
+
+    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
+    # ax.voxels(voxelarray.transpose(1, 0, 2))
+    ax.voxels(
+        voxelarray.transpose(1, 0, 2), facecolors=colors[int(np.max(voxelarray) - 1)]
+    )
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.view_init(azim=azim, elev=elev)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_voxel(voxelarray, fc=0, elev=20, azim=10):
+    ax = plt.figure(figsize=(4, 4)).add_subplot(projection="3d")
+    ax.voxels(voxelarray.transpose(1, 0, 2), facecolors=f"C{fc}")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.view_init(azim=azim, elev=elev)
+    plt.tight_layout()
+    plt.show()
+
+
+def voxel_ball(ball, boundary, empty_gnd=0, mask=False):
+    y, x, z = np.indices((boundary.x_length, boundary.y_length, boundary.z_length))
+    voxel = (
+        np.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2 + (z - ball.z) ** 2) < ball.d / 2
+    )
+    if mask:
+        return voxel
+    else:
+        return np.where(voxel, ball.γ, empty_gnd)
+
+
+def plot_reconstruction_set(
+    true, m_true, pred, m_pred, cols=5, legends=False, save_fig=None, forced_sel=None
+):
+    if true.shape != pred.shape:
+        print("true.shape != pred.shape")
+        return
+
+    rows = 2
+    colors = ["C0", "C1"]  # Define colors for 1 and 2 values respectively
+    if forced_sel is None:
+        sel = random.sample(range(true.shape[0]), cols)
+    else:
+        sel = forced_sel
+    print("Selcted the samples =", sel)
+    fig, axes = plt.subplots(
+        rows, cols, figsize=(14, 5), subplot_kw={"projection": "3d"}
+    )
+    for i in range(rows):
+        for j in range(cols):
+            ax = axes[i, j]
+            voxelarray = (
+                true[sel[j]] * (1 + m_true[sel[j]])
+                if i == 0
+                else pred[sel[j]] * (1 + m_pred[sel[j]])
+            )
+            ax.voxels(voxelarray, facecolors=colors[int(np.max(voxelarray) - 1)])
+            if legends:
+                ax.set_xlabel("x")
+                ax.set_ylabel("y")
+                ax.set_zlabel("z")
+            else:
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                ax.set_zticklabels([])
+            ax.view_init(azim=45, elev=30)
+    if not legends:
+        print("Row 0 -> true γ distribution")
+        print("Row 1 -> pred γ distribution")
+    # plt.tight_layout()
+    if save_fig is not None:
+        plt.savefig(save_fig, bbox_inches="tight", pad_inches=0)
+    plt.show()
+
+
+def read_json_file(file_path):
+    try:
+        with open(file_path, "r") as json_file:
+            data = json.load(json_file)
+            return data
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON in file {file_path}: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
