@@ -19,7 +19,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import SGD, Adam
 
 filters = [1, 2, 4, 8]
-kernels = [(5,5,5) for _ in range(4)]
+kernels = [(5, 5, 5) for _ in range(4)]
 strides = [(1, 1, 1), (2, 2, 2), (2, 2, 2), (2, 2, 2)]
 paddings = ["same", "same", "same", "same"]
 
@@ -77,6 +77,23 @@ class VAE(Model):
             "reconstruction_loss": self.reconstruction_loss_tracker.result(),
             "kl_loss": self.kl_loss_tracker.result(),
             "total_loss": self.total_loss_tracker.result(),
+        }
+
+    def test_step(self, data):
+        
+        z_mean, z_log_var, z = self.encoder(data)
+        reconstruction = self.decoder(z)
+        loss, reconstruction_loss, kl_loss = self.vae_loss(
+            data, reconstruction, z_mean, z_log_var
+        )
+
+        self.total_loss_tracker.update_state(loss)
+        self.reconstruction_loss_tracker.update_state(reconstruction_loss)
+        self.kl_loss_tracker.update_state(kl_loss)
+        return {
+            "loss": self.total_loss_tracker.result(),
+            "reconstruction_loss": self.reconstruction_loss_tracker.result(),
+            "kl_loss": self.kl_loss_tracker.result(),
         }
 
     def get_config(self):
@@ -181,23 +198,8 @@ def vae_model(
 
 vae = vae_model()
 
-# engineering decoder and encoder parts:
 
-#encoder_inputs, z_mean, z_log_var, z = encoder_model(
-    #input_shape=(32, 32, 32, 1),
-    #filters=filters,
-    #kernels=kernels,
-    #strides=strides,
-    #paddings=paddings,
-    #latent_dim=latent_dim,
-#)
-#encoder = Model(encoder_inputs, (z_mean, z_log_var, z), name="VAE_encoder")
 
-#decoder_inputs, decoder_outputs = decoder_model(
-    #input_shape=(32, 32, 32, 1),
-    #filters=filters[::-1],
-    #kernels=kernels[::-1],
-    #strides=strides[::-1],
-    #paddings=paddings[::-1],
-    #latent_dim=latent_dim,
-#)
+
+
+

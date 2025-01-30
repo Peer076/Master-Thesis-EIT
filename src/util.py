@@ -244,45 +244,6 @@ def plot_tank(r, h, ax):
     Y_cylinder, _ = np.meshgrid(r * np.sin(theta), z_cylinder)
     ax.plot_surface(X_cylinder, Y_cylinder, Z_cylinder, color='lightgray', alpha=0.5)
 
-def plot_3D_traj(sphere_r, tank_r, tank_h):
-
-    r_path = 0.75
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    plot_tank(tank_r, tank_h, ax)
-
-    traj = "helix"
-     
-    N_steps = 100
-    match traj:
-        case "helix":
-            helix_turns = 1
-            theta = np.linspace(0, 2 * np.pi * helix_turns, N_steps)
-            sphere_x = tank_r*r_path * np.cos(theta)
-            sphere_y = tank_r*r_path * np.sin(theta)
-            sphere_z = np.linspace(0, tank_h, N_steps)
-
-        case "ellipse":
-            tilt_angle = 45
-            angle_rad = np.radians(tilt_angle)
-            theta = np.linspace(0, 2*np.pi, N_steps)
-            sphere_x = tank_r * np.cos(theta)
-            sphere_y = (tank_r * np.sin(theta)) / np.cos(angle_rad)
-            sphere_z = tank_h/2 * np.ones_like(theta)
-
-    positions = np.column_stack((sphere_x, sphere_y, sphere_z))
-    
-    ax.plot(sphere_x, sphere_y, sphere_z, color='r')
-    ax.scatter(sphere_x, sphere_y, sphere_z, color='b')
-    
-    ax.set_xlabel('x pos [mm]')
-    ax.set_ylabel('y pos [mm]')
-    ax.set_zlabel('z pos [mm]')
-    ax.set_title('Kugel 3D Trajektorie')
-     
-    plt.show()
-    
-    return positions
 
 def interpolate_equidistant_points(x, y, num_points):
     """
@@ -418,19 +379,23 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     return np.column_stack((x_uniform, y_uniform))
 
 
-def create_trajectory_3D(traj_type, radius, num_points, base_rotations=1):
+def create_trajectory_3D(traj_type, radius, num_points, base_rotations=2):
 
-    if traj_type == "Helix":
-        #x	=	rcost	
-        #y	=	rsint	
-        #z	=	ct
-        from src.classes import Boundary, TankProperties32x2, BallAnomaly
-        tank = TankProperties32x2()
-        
-        # n_turns bestimmt die Anzahl der Windungen
-        n_turns = 30  # zum Beispiel für 3 Windungen
+    if traj_type == "ModulatedHelix":
+        t = np.linspace(0, 2*np.pi*base_rotations, num_points)
+    
+        osc_amplitude = 97*0.1
+        osc_frequency = 5  
+        phase_shift = 0
+    
+        # Die Grundform der Helix bleibt gleich
+        R = radius + osc_amplitude * np.sin(t * osc_frequency)  # Vereinfachte Oszillation
+        x = R * np.cos(t)
+        y = R * np.sin(t)
+        z = np.linspace(50, 100, num_points)
 
-        t = np.linspace(0, 2*np.pi*n_turns, num_points)  # Multipliziere mit n_turns
+    elif traj_type == "Helix":
+        t = np.linspace(0, 2*np.pi*base_rotations, num_points)
         x = radius * np.cos(t)
         y = radius * np.sin(t)
         z = np.linspace(50, 100, num_points)
@@ -573,6 +538,31 @@ def load_sim_data(data_set):
 
 def load_exp_data(data_set):
     data_dirs = sorted(glob(f"exp_data_set/{data_set}/"))  
+
+    for i, directory in enumerate(data_dirs):
+        file_list = sorted(glob(f"{directory}*.npz"))  
+        voltage_list = []
+        temp_list = []
+        timestamp_list = []
+        position_list = []
+     
+        for file in file_list:
+            tmp = np.load(file, allow_pickle=True)  
+            voltage_list.append(tmp["v"])
+            temp_list.append(tmp["temperature"])
+            timestamp_list.append(tmp["timestamp"])
+            position_list.append(tmp["position"])
+            
+
+        voltage_array = np.array(voltage_list)
+        temp_array = np.array(temp_list)
+        timestamp_array = np.array(timestamp_list)
+        position_array = np.array(position_list)
+        
+    return voltage_array, temp_array, timestamp_array, position_array
+
+def load_exp_data3D(data_set):
+    data_dirs = sorted(glob(f"exp_data_set_3D/{data_set}/"))  
 
     for i, directory in enumerate(data_dirs):
         file_list = sorted(glob(f"{directory}*.npz"))  
