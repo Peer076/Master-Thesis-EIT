@@ -1,6 +1,6 @@
 __pycache__
 .ipynb_checkpoints
-data_set/
+sim_data_*
 LSTM_Mapper_Mesh_Plots_Exp1/
 animation/
 hpt/
