@@ -281,18 +281,39 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
     if traj_type == "Kreis":
         x_uniform = radius * np.cos(t)
         y_uniform = radius * np.sin(t)
+
+    elif traj_type == "ModulatedKreis":
+    
+        osc_amplitude = 0.2
+        osc_frequency = 5  
+        phase_shift = 0
+    
+        # Die Grundform der Helix bleibt gleich
+        R = radius + osc_amplitude * np.sin(t * osc_frequency)
+        x_uniform = R * np.cos(t)
+        y_uniform = R * np.sin(t)
         
     elif traj_type == "Ellipse":
         a = radius  
         b = 0.7 * radius 
-        x = a * np.cos(t)
-        y = b * np.sin(t)
+        x_uniform = a * np.cos(t)
+        y_uniform = b * np.sin(t)
         
     elif traj_type == "Acht":
         x = radius * np.sin(t)
         y = radius * np.sin(2*t) / 2
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
-    
+
+    elif traj_type == "Rosette":
+        n = 5 #4, 5, 4
+        d = 4  #5, 4,9
+        t = np.linspace(0, 2*np.pi*d, num_points)
+        
+        x = radius*np.cos(n/d*t) * np.cos(t)
+        y = radius*np.cos(n/d*t)*np.sin(t)
+        
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+        
     elif traj_type == "Spirale":
         rotations = base_rotations + (num_points // 1000)
         t = np.linspace(0, 2*np.pi*rotations, 1000)
@@ -304,13 +325,12 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
 
     elif traj_type == "Lissajous":
-        a = 3  # Frequenz x
-        b = 4  # Frequenz y
+        a = 2  # Frequenz x    #4 #2
+        b = 3  # Frequenz y    #5 #3
         t = np.linspace(0, 2*np.pi, 1000)
-        
         x = radius * np.sin(a * t)
-        y = radius * np.sin(b * t)
-        
+        y = radius* np.sin(b * t)
+    
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
 
     elif traj_type == "Folium_vorwärts":
@@ -375,7 +395,55 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
 
-    
+    elif traj_type == "Kubisch":
+        # Parametrische kubische Funktion mit 3 Nullstellen
+        t = np.linspace(-1.5, 1.5, 1000)  # Angepasster Bereich für die Nullstellen
+        
+        # Kubische Funktion: y = x³ - x
+        # Diese Form hat Nullstellen bei x = -1, 0, 1
+        # und Extrema bei x = ±1/√3
+        x = t
+        y = t**3 - t
+        
+        # Skalierung, um die Kurve im gewünschten Radius zu halten
+        max_val = np.max(np.abs([x, y]))
+        scale = radius / max_val
+        x *= scale
+        y *= scale
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Quintisch":
+       
+       t = np.linspace(-2, 2, 1000)  
+       x = t
+       # Function with 3 maxima and 2 minima, 5 zeros
+       y = 0.5 * t * (t**2 - 1) * (t**2 - 4)
+       
+       max_val = np.max(np.abs([x, y]))
+       scale = radius / max_val
+       x *= scale
+       y *= scale
+       x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Quartisch":
+        # Parametrische quartische Funktion
+        t = np.linspace(-2, 2, 1000)
+        
+        # Quartische Funktion: y = x⁴ - 2x²
+        # Diese Form hat interessante Eigenschaften:
+        # - Nullstellen bei x = -√2, 0, √2
+        # - Lokale Maxima bei x = ±1
+        # - Lokales Minimum bei x = 0
+        x = t
+        y = t**4 - 2*t**2
+        
+        # Skalierung, um die Kurve im gewünschten Radius zu halten
+        max_val = np.max(np.abs([x, y]))
+        scale = radius / max_val
+        x *= scale
+        y *= scale
+        x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+        
     return np.column_stack((x_uniform, y_uniform))
 
 
@@ -537,7 +605,7 @@ def load_sim_data(data_set):
     return voltage_array, gamma_array, anomaly_array  
 
 def load_exp_data(data_set):
-    data_dirs = sorted(glob(f"exp_data_set/{data_set}/"))  
+    data_dirs = sorted(glob(f"exp_data_set_2/{data_set}/"))  
 
     for i, directory in enumerate(data_dirs):
         file_list = sorted(glob(f"{directory}*.npz"))  
