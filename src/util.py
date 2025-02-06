@@ -282,6 +282,14 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         x_uniform = radius * np.cos(t)
         y_uniform = radius * np.sin(t)
 
+    elif traj_type == "Kreis_no_interp":
+    # Nicht-lineare Zeitpunkte für beschleunigte Bewegung
+        t = np.log(1 + 9*np.linspace(0, 1, num_points)) / np.log(10) * 2*np.pi
+
+        # Kreiskoordinaten
+        x_uniform = radius * np.cos(t)
+        y_uniform = radius * np.sin(t)
+
     elif traj_type == "ModulatedKreis":
     
         osc_amplitude = 0.2
@@ -323,6 +331,14 @@ def create_trajectory(traj_type, radius, num_points, base_rotations=1):
         y = r * np.sin(t)
         
         x_uniform, y_uniform = interpolate_equidistant_points(x, y, num_points)
+
+    elif traj_type == "Spirale_no_interp":
+        rotations = base_rotations + (num_points // 1000)
+        t = np.linspace(0, 2*np.pi*rotations, 1000)
+        
+        r = radius * (1 - t/(2*np.pi*rotations))
+        x_uniform = r * np.cos(t)
+        y_uniform = r * np.sin(t)
 
     elif traj_type == "Lissajous":
         a = 2  # Frequenz x    #4 #2
@@ -604,11 +620,25 @@ def load_sim_data(data_set):
         
     return voltage_array, gamma_array, anomaly_array  
 
-def load_exp_data(data_set):
-    data_dirs = sorted(glob(f"exp_data_set_2/{data_set}/"))  
 
+def load_exp_data(data_path, data_set):
+    data_dirs = sorted(glob(f"{data_path}/{data_set}/"))
+    
+    if not data_dirs:
+        raise ValueError(f"No directories found in {data_path}/{data_set}/")
+        
+    voltage_array = None
+    temp_array = None
+    timestamp_array = None
+    position_array = None
+    
     for i, directory in enumerate(data_dirs):
-        file_list = sorted(glob(f"{directory}*.npz"))  
+        file_list = sorted(glob(f"{directory}*.npz"))
+        
+        if not file_list:
+            print(f"Warning: No .npz files found in {directory}")
+            continue
+            
         voltage_list = []
         temp_list = []
         timestamp_list = []
@@ -621,36 +651,13 @@ def load_exp_data(data_set):
             timestamp_list.append(tmp["timestamp"])
             position_list.append(tmp["position"])
             
-
         voltage_array = np.array(voltage_list)
         temp_array = np.array(temp_list)
         timestamp_array = np.array(timestamp_list)
         position_array = np.array(position_list)
         
-    return voltage_array, temp_array, timestamp_array, position_array
-
-def load_exp_data3D(data_set):
-    data_dirs = sorted(glob(f"exp_data_set_3D/{data_set}/"))  
-
-    for i, directory in enumerate(data_dirs):
-        file_list = sorted(glob(f"{directory}*.npz"))  
-        voltage_list = []
-        temp_list = []
-        timestamp_list = []
-        position_list = []
-     
-        for file in file_list:
-            tmp = np.load(file, allow_pickle=True)  
-            voltage_list.append(tmp["v"])
-            temp_list.append(tmp["temperature"])
-            timestamp_list.append(tmp["timestamp"])
-            position_list.append(tmp["position"])
-            
-
-        voltage_array = np.array(voltage_list)
-        temp_array = np.array(temp_list)
-        timestamp_array = np.array(timestamp_list)
-        position_array = np.array(position_list)
+    if voltage_array is None:
+        raise ValueError("No data was loaded from any directory")
         
     return voltage_array, temp_array, timestamp_array, position_array
 ###
